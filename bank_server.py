@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # Bank Server application
-# Jimmy da Geek
+# Serena Geroe
 
 import socket
 
@@ -141,6 +141,51 @@ def load_all_accounts(acct_file = "accounts.txt"):
 def run_network_server():
     """ This and all supporting code needs to be written! """
     print("Bank server network functions not implemented!!")
+
+    # Enable just one connection w ATM client ########################################################################
+    # Code based on P1, digital palette server
+    print("\nInitiating connection to client - listening for connections at IP", HOST, "and port", PORT, " \n")
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: #creates socket object with address family AF_INET and socket type SOCK_STREAM
+        s.bind((HOST, PORT)) # associates the socket with the particular desired network interface and port number
+        s.listen() # enables the server to accept connections; also accounts for the server's backlogged connections (ones that haven't yet been accepted)
+        conn, addr = s.accept() # accept() blocks execution and waits for an incoming connection
+        with conn: # once a connection is made with the client, a new socket object is returned from accept() (different socket from the listening socket)
+            print(f"Established connection, {addr}\n")
+            while True: # infinite while loop to loop over blocking calls to conn.recv()
+                login_info = conn.recv(1024)
+                print(login_info.decode('utf-8'))
+                if not login_info:
+                   break # if conn.recv() returns an empty bytes object, the server knows the client closed the connection
+                print(f"Received client message '{login_info!r}' [{len(login_info)} bytes] \n") # print client message
+                acct = get_acct(login_info)
+                print(f"Account '{acct.acct_number}' has PIN {acct.acct_pin}")
+                print(f"Current account balance: {acct.acct_balance}")
+                               
+                # data = conn.recv(1024)
+                # data_string = data.decode('utf-8')
+                # print(data_string)
+                # if not data:
+                #     break # if conn.recv() returns an empty bytes object, the server knows the client closed the connection
+                # print(f"Received client message: '{data!r}' [{len(data)} bytes] \n") # print client message
+                # reply = "Bank Reply here :D" # just send some reply for testing for now
+                # print("Bank server program output:" , reply, "\n")
+                # reply_byte = reply.encode('utf-8') # encode the digital_palette's reply to be type byte instead of a string
+                # print("Sending output '", reply, "' back to client \n")
+                # conn.sendall(reply_byte) # send server response to the client
+        # ###########################################################################################################
+
+                # # reply_acct_num checks if acct num is valid
+                # reply_acct_num = acctNumberIsValid(data)
+                # print(reply_acct_num, "\n")
+                # reply_acct_num_byte = reply_acct_num.encode('utf-8') # encode the digital_palette's reply to be type byte instead of a string
+                # print("Sending output '", reply_acct_num, "' back to client \n")
+                # conn.sendall(reply_acct_num_byte) # send server response to the client
+
+
+
+
+
+
     return
 
 ##########################################################

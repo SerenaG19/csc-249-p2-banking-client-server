@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #
 # Automated Teller Machine (ATM) client application.
+# Serena Geroe
 
 import socket
 
@@ -18,7 +19,7 @@ PORT = 65432            # The port used by the bank server
 def send_to_server(sock, msg):
     """ Given an open socket connection (sock) and a string msg, send the string to the server. """
     # TODO make sure this works as needed
-    return sock.sendall(msg.encode('utf-8'))
+    return sock.sendall(msg.encode('utf-8')) # encodes the msg and sends to the server
 
 def get_from_server(sock):
     """ Attempt to receive a message from the active connection. Block until message is received. """
@@ -30,12 +31,25 @@ def login_to_server(sock, acct_num, pin):
     """ Attempt to login to the bank server. Pass acct_num and pin, get response, parse and check whether login was successful. """
     validated = 0
     # TODO: Write this code!
+
+    #####ATTEMPT 1 AT CODING THIS############
+    # send bank server acct_num and request validation
+    # print("sock: " + sock + ", acct_num: "+ acct_num + ", pin: " + pin)
+    # send_to_server(sock, acct_num)
+    # get_from_server(sock)
+    #########################################
+
     return validated
 
 def get_login_info():
-    """ Get info from customer. TODO: Validate inputs, ask again if given invalid input. """
+    """ Get info from customer. """
+
+    #TODO: Validate inputs, ask again if given invalid input.
+
     acct_num = input("Please enter your account number: ")
     pin = input("Please enter your four digit PIN: ")
+
+
     return acct_num, pin
 
 def process_deposit(sock, acct_num):
