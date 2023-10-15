@@ -140,7 +140,7 @@ def load_all_accounts(acct_file = "accounts.txt"):
 
 def validate_acct_pin_pair(actNum_pin_pair):
     """ Validate the account number - pin pair based on the memory database.
-    Returns the result code.
+    Returns the result code and this BankAccount object.
     Success code is: 0: valid result; 
     Error code is: 1: invalid account number - pin pair. """
     login_credentials_list = actNum_pin_pair.split(",") #parse the client's message based on a comma delimeter
@@ -148,7 +148,33 @@ def validate_acct_pin_pair(actNum_pin_pair):
     if login_credentials_list[1] == this_acct.acct_pin:
         result_code = 0
     else: result_code = 1
-    return result_code
+    return result_code, this_acct
+
+def interpret_client_operation(op, this_acct):
+    """Parses client request, sends client account balance, performs request.
+    Success codes are: 0: valid result; 1: invalid amount given. """
+    # TODO 1. Validate operation format, 2. Send appropriate and specific responses to client...
+    
+    op_list = op.split(",") #op[0] = "d" or "w", op[1] = amt
+    
+    # first, the client always requests the acct balance. send acct balance:
+
+
+    # deposit
+    # if op == "d":        
+    #     # op is the client's message in the following format:
+    #     # d,<amount>
+
+    #     # first, parse client's message
+    #     op_list = op.split(",") #op[0] = "d", op[1] = amt
+    #     # attempt deposit
+    #     this_acct, result_code, new_bal = this_acct.deposit(this_acct, op_list[1])
+    #     return  this_acct, result_code, new_bal
+    
+
+    # if op == "d" or op =="w"
+    
+    return this_acct, 0
 
 def run_network_server():
     """ Runs the communication between the server and the client. """
@@ -168,14 +194,28 @@ def run_network_server():
                    break # if conn.recv() returns an empty bytes object, the server knows the client closed the connection
                 
                 # log in
-                result_code_login = validate_acct_pin_pair(login_info.decode('utf-8')) # check whether the acct_num - pin pair is valid
-                # login_response = str(result_code_login).encode('utf-8')
+                login_info = login_info.decode('utf-8')
+                result_code_login, this_acct = validate_acct_pin_pair(login_info) # check whether the acct_num - pin pair is valid
                 login_response = str(result_code_login).encode('utf-8')
                 conn.sendall(login_response) # send server response to the client
 
                 # respond to client's request operation
-                operation = conn.recv(1024)
-                print("Received client operation request: " + operation.decode('utf-8'))
+                acct_num = conn.recv(1024)
+                if not acct_num:
+                   break # if conn.recv() returns an empty bytes object, the server knows the client closed the connection
+                
+                # send client the acct balance
+                acct_num = acct_num.decode('utf-8')
+                print("Received client operation request for account: " + acct_num)
+                this_acct, result_code = interpret_client_operation(acct_num, this_acct)
+                bal = str(this_acct.acct_balance)
+                bal = bal.encode('utf-8')
+                conn.sendall(bal) # send server response to the client
+
+
+                # result_code = 1 # begin loop to work w client to perform valid operations
+                # while result_code != 0:
+                #     this_acct, result_code, new_bal = interpret_client_operation(operation, this_acct)
 
 
 

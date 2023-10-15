@@ -45,7 +45,7 @@ def check_logininfo_with_server(sock, login_info):
     """Return validated, which is 0 if the server validates this acct_num - pin pair"""
     # note that send_to_server() encodes the login_info to type byte
     send_to_server(sock, login_info) # send the login_info concatenated string to the server
-    server_response_result_code = get_from_server(sock) # receive message from the server
+    server_response_result_code = int(get_from_server(sock)) # receive message from the server
     validated = not server_response_result_code # result code is flipped value of validated, since 0 is success for the result_code
     return validated
 
@@ -57,6 +57,7 @@ def login_to_server(sock, acct_num, pin):
     # This does NOT check if the acct_num and pin represent a real account, and whether they are correct.
     # That is the server's job!
     validated = acctNumberIsValid(acct_num) and acctPinIsValid(pin)
+    if not validated: return validated
 
     # concatenate the acct_num and pin into one string, with a comma delimeter, to be read by the server
     login_info = acct_num + "," + pin
@@ -75,9 +76,9 @@ def get_login_info():
 def process_deposit(sock, acct_num):
     """ TODO: Write this code. """
     bal = get_acct_balance(sock, acct_num)
-    amt = input("How much would you like to deposit? (You have ${bal} available)")
+    amt = input(f"How much would you like to deposit? (You have '${bal}' available)")
     # TODO communicate with the server to request the deposit, check response for success or failure.
-    msg = "d"
+    msg = "d," + amt
     send_to_server(msg.encode('utf-8'))
 
     print("Deposit transaction completed.")
@@ -87,17 +88,15 @@ def get_acct_balance(sock, acct_num):
     """ TODO: Ask the server for current account balance. """
     bal = 0.0
     # TODO code needed here, to get balance from server then return it
-
-
-
-
-
+    send_to_server(sock, acct_num,) # send the login_info concatenated string to the server
+    bal = get_from_server(sock)
+    bal = bal.decode('utf-8')
     return bal
 
 def process_withdrawal(sock, acct_num):
     """ TODO: Write this code. """
     bal = get_acct_balance(sock, acct_num)
-    amt = input(f"How much would you like to withdraw? (You have ${bal} available)")
+    am1t = input(f"How much would you like to withdraw? (You have ${bal} available)")
     # TODO communicate with the server to request the withdrawal, check response for success or failure.
     print("Withdrawal transaction completed.")
     return
