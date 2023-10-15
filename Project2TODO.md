@@ -44,4 +44,4 @@
 ## Where I'm at right now
 - [ ] Start with enabling a single connection between the bank server and the ATM client.
     - [ ] Begin with editing server code, use P1 as reference code.
-    Why does the bank server say account-pin pair is invalid? --> Need to start by implementing login_to_server() in client server code
+    Why does the bank server say account-pin pair is invalid? --> Need to start by implementing login_to_server() in client server code.

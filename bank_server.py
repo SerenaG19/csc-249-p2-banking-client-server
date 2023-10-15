@@ -138,13 +138,23 @@ def load_all_accounts(acct_file = "accounts.txt"):
 #                                                        #
 ##########################################################
 
+def validate_acct_pin_pair(actNum_pin_pair):
+    """ Validate the account number - pin pair based on the memory database.
+    Returns the result code.
+    Success code is: 0: valid result; 
+    Error code is: 1: invalid account number - pin pair. """
+    login_credentials_list = actNum_pin_pair.split(",") #parse the client's message based on a comma delimeter
+    this_acct = get_acct(login_credentials_list[0]) # returns the BankAccount object being requested
+    if login_credentials_list[1] == this_acct.acct_pin:
+        result_code = 0
+    else: result_code = 1
+    return result_code
+
 def run_network_server():
-    """ This and all supporting code needs to be written! """
-    print("Bank server network functions not implemented!!")
+    """ Runs the communication between the server and the client. """
 
     # Enable just one connection w ATM client ########################################################################
-    # Code based on P1, digital palette server
-    print("\nInitiating connection to client - listening for connections at IP", HOST, "and port", PORT, " \n")
+    print("Establishing connection to client - listening for connections at IP", HOST, "and port", PORT, " \n")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: #creates socket object with address family AF_INET and socket type SOCK_STREAM
         s.bind((HOST, PORT)) # associates the socket with the particular desired network interface and port number
         s.listen() # enables the server to accept connections; also accounts for the server's backlogged connections (ones that haven't yet been accepted)
@@ -153,38 +163,24 @@ def run_network_server():
             print(f"Established connection, {addr}\n")
             while True: # infinite while loop to loop over blocking calls to conn.recv()
                 login_info = conn.recv(1024)
-                print(login_info.decode('utf-8'))
+                print("Received login request: " + login_info.decode('utf-8'))
                 if not login_info:
                    break # if conn.recv() returns an empty bytes object, the server knows the client closed the connection
-                print(f"Received client message '{login_info!r}' [{len(login_info)} bytes] \n") # print client message
-                acct = get_acct(login_info)
-                print(f"Account '{acct.acct_number}' has PIN {acct.acct_pin}")
-                print(f"Current account balance: {acct.acct_balance}")
-                               
-                # data = conn.recv(1024)
-                # data_string = data.decode('utf-8')
-                # print(data_string)
-                # if not data:
-                #     break # if conn.recv() returns an empty bytes object, the server knows the client closed the connection
-                # print(f"Received client message: '{data!r}' [{len(data)} bytes] \n") # print client message
-                # reply = "Bank Reply here :D" # just send some reply for testing for now
-                # print("Bank server program output:" , reply, "\n")
-                # reply_byte = reply.encode('utf-8') # encode the digital_palette's reply to be type byte instead of a string
-                # print("Sending output '", reply, "' back to client \n")
-                # conn.sendall(reply_byte) # send server response to the client
+                
+                # log in
+                result_code_login = validate_acct_pin_pair(login_info.decode('utf-8')) # check whether the acct_num - pin pair is valid
+                # login_response = str(result_code_login).encode('utf-8')
+                login_response = str(result_code_login).encode('utf-8')
+                conn.sendall(login_response) # send server response to the client
+
+                # respond to client's request operation
+                operation = conn.recv(1024)
+                print("Received client operation request: " + operation.decode('utf-8'))
+
+
+
+                # print(f"Received client message '{login_info!r}' [{len(login_info)} bytes] \n") # print client message
         # ###########################################################################################################
-
-                # # reply_acct_num checks if acct num is valid
-                # reply_acct_num = acctNumberIsValid(data)
-                # print(reply_acct_num, "\n")
-                # reply_acct_num_byte = reply_acct_num.encode('utf-8') # encode the digital_palette's reply to be type byte instead of a string
-                # print("Sending output '", reply_acct_num, "' back to client \n")
-                # conn.sendall(reply_acct_num_byte) # send server response to the client
-
-
-
-
-
 
     return
 
