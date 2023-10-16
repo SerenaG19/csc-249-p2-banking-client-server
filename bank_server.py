@@ -207,15 +207,22 @@ def interpret_client_operation(msg, thisState):
     result_code = 5
     cur_state = thisState
 
-    op_list = msg.split(",") #op[0] = "l", "d", "w", or "b" | op[1] = param1, op[2] = param2
+    op_list = msg.split(",") #op[0] = "l", "b", "d", or "w" | op[1] = param1, op[2] = param2
     
     # login
     if(op_list[0] == "l"):
         result_code, cur_state =  validate_acct_pin_pair(msg, thisState) # check whether the acct_num - pin pair is valid
 
     # balance check
+    if(op_list[0] == "b"):
+        # no other steps needed. just communicate successful exchange of info between server and client
+        # the server by default sends back the account balance
+        # do not need to update the state
+        result_code = 0
+
     
     # deposit
+
 
     # withdraw
 
@@ -251,9 +258,12 @@ def run_network_server():
         conn, addr = s.accept() # accept() blocks execution and waits for an incoming connection
         with conn: # once a connection is made with the client, a new socket object is returned from accept() (different socket from the listening socket)
             print(f"Established connection, {addr}\n")
+
+            thisState = CurrentState()
+
             while True: # infinite while loop to loop over blocking calls to conn.recv()
                 
-                thisState = CurrentState()
+                
 
                 # receive client message
                 client_msg = conn.recv(1024)

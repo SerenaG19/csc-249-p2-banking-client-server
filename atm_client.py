@@ -77,7 +77,6 @@ def get_login_info():
     """ Get info from customer. """
     #TODO: Validate inputs, ask again if given invalid input.
     acct_num = input("Please enter your account number: ")
-
     pin = input("Please enter your four digit PIN: ")
     return acct_num, pin
 
@@ -94,11 +93,14 @@ def process_deposit(sock, acct_num):
     return
 
 def get_acct_balance(sock, acct_num):
-    """ TODO: Ask the server for current account balance. """
-    bal = 0.0
+    """ TODO: Write this """
+    # bal = 0.0
     # TODO code needed here, to get balance from server then return it
-    send_to_server(sock, acct_num) # send the login_info concatenated string to the server
-    bal = get_from_server(sock)
+    client_msg = "b," + acct_num
+    send_to_server(sock, client_msg) # send the login_info concatenated string to the server
+    server_response = get_from_server(sock)
+    server_response_list = server_response.split(",")
+    bal = server_response_list[1]
     return bal
 
 def process_withdrawal(sock, acct_num):
@@ -112,9 +114,9 @@ def process_withdrawal(sock, acct_num):
 def process_customer_transactions(sock, acct_num):
     """ Ask customer for a transaction, communicate with server. TODO: Revise as needed. """
     while True:
-        print("Select a transaction. Enter 'd' to deposit, 'w' to withdraw, or 'x' to exit.")
+        print("Select a transaction. Enter 'd' to deposit, 'w' to withdraw, 'b' to check balance, or 'x' to exit.")
         req = input("Your choice? ").lower()
-        if req not in ('d', 'w', 'x'):
+        if req not in ('d', 'w', 'x', 'b'):
             print("Unrecognized choice, please try again.")
             continue
         if req == 'x':
@@ -122,8 +124,12 @@ def process_customer_transactions(sock, acct_num):
             break
         elif req == 'd':
             process_deposit(sock, acct_num)
-        else:
+        elif req == 'w':
             process_withdrawal(sock, acct_num)
+        else:
+            bal = get_acct_balance(sock, acct_num)
+            print("You have " + bal + " available.")
+
 
 def run_atm_core_loop(sock):
     """ Given an active network connection to the bank server, run the core business loop. """
