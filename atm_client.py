@@ -45,9 +45,15 @@ def check_logininfo_with_server(sock, login_info):
     """Return validated, which is 0 if the server validates this acct_num - pin pair"""
     # note that send_to_server() encodes the login_info to type byte
     send_to_server(sock, login_info) # send the login_info concatenated string to the server
-    server_response_result_code = int(get_from_server(sock)) # receive message from the server
-    validated = not server_response_result_code # result code is flipped value of validated, since 0 is success for the result_code
-    return validated
+    server_response_list = get_from_server(sock).split(",") # receive message from the server
+    # result_code = bool(server_response_list[0])
+    result_code = int(server_response_list[0])
+    result_code = bool(result_code)
+    validated = not result_code
+    # validated = int(server_response_list[0]) # TODO is ? result code is flipped value of validated, since 0 is success for the result_code
+    
+    bal = server_response_list[1]
+    return validated, bal
 
 def login_to_server(sock, acct_num, pin):
     """ Attempt to login to the bank server. Pass acct_num and pin, get response, parse and check whether login was successful. """
@@ -60,22 +66,25 @@ def login_to_server(sock, acct_num, pin):
     if not validated: return validated
 
     # concatenate the acct_num and pin into one string, with a comma delimeter, to be read by the server
-    login_info = acct_num + "," + pin
+    login_info = "l," + acct_num + "," + pin
+    # login_info = acct_num + "," + pin
     
     # call check_logininfo_with_server function
-    validated = check_logininfo_with_server(sock, login_info)
-    return validated
+    validated, bal = check_logininfo_with_server(sock, login_info)
+    return validated, bal
 
 def get_login_info():
     """ Get info from customer. """
     #TODO: Validate inputs, ask again if given invalid input.
     acct_num = input("Please enter your account number: ")
+
     pin = input("Please enter your four digit PIN: ")
     return acct_num, pin
 
 def process_deposit(sock, acct_num):
     """ TODO: Write this code. """
     bal = get_acct_balance(sock, acct_num)
+    # print(bal)
     amt = input(f"How much would you like to deposit? (You have '${bal}' available)")
     # TODO communicate with the server to request the deposit, check response for success or failure.
     msg = "d," + amt
@@ -88,9 +97,8 @@ def get_acct_balance(sock, acct_num):
     """ TODO: Ask the server for current account balance. """
     bal = 0.0
     # TODO code needed here, to get balance from server then return it
-    send_to_server(sock, acct_num,) # send the login_info concatenated string to the server
+    send_to_server(sock, acct_num) # send the login_info concatenated string to the server
     bal = get_from_server(sock)
-    bal = bal.decode('utf-8')
     return bal
 
 def process_withdrawal(sock, acct_num):
@@ -119,10 +127,13 @@ def process_customer_transactions(sock, acct_num):
 
 def run_atm_core_loop(sock):
     """ Given an active network connection to the bank server, run the core business loop. """
+
+    # Enclose in a while loop with a counter that starts at 3
     acct_num, pin = get_login_info()
-    validated = login_to_server(sock, acct_num, pin)
+    validated, bal = login_to_server(sock, acct_num, pin)
+
     if validated: # result_code = 0
-        print("Thank you, your credentials have been validated.")
+        print("Thank you, your credentials have been validated. Your balance is " + bal + ".")
     else: # result_code = 1
         print("Account number and PIN do not match. Terminating ATM session. Please try again.")
         return False
