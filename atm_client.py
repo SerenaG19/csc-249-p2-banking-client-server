@@ -110,7 +110,7 @@ def process_deposit(sock, acct_num):
     return result_code, bal
 
 def communicateWithServer(sock, client_msg):
-    """TODO"""
+    """Returns result code and balance. Sends messages to the server and receives the server's response."""
     send_to_server(sock, client_msg)
     server_response = get_from_server(sock)
     server_response_list = server_response.split(",")

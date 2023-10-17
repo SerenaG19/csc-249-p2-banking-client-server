@@ -118,6 +118,7 @@ class BankAccount:
     
     # validate pin inside the class
     def validatePin(self, otherPin):
+        """Return true if a given pin matches the pin of this BankAccount."""
         return self.acct_pin == otherPin
 
 def get_acct(acct_num):
@@ -176,8 +177,6 @@ def load_all_accounts(acct_file = "accounts.txt"):
 #                                                        #
 # Bank Server Network Operations                         #
 #                                                        #
-# TODO: THIS SECTION NEEDS TO BE WRITTEN!!               #
-#                                                        #
 ##########################################################
 
 def validate_acct_pin_pair(client_msg, state: CurrentState):
@@ -203,14 +202,10 @@ def validate_acct_pin_pair(client_msg, state: CurrentState):
 
 def interpret_client_operation(msg, thisState:CurrentState):
     """Parses client request, sends client account balance, performs request.
-    Result codes are: 0: valid result; 1: invalid login; 2: invalid amount; 3: attempted overdraft"""
+    Result codes are: 0: valid result; 1: invalid login; 2: invalid amount; 3: attempted overdraft""" 
 
-    # TODO 1. Validate operation format, 2. Send appropriate and specific responses to client...
-    
     cur_state = thisState
-
     op_list = msg.split(",") #op[0] = "l", "b", "d", or "w" | op[1] = param
-    
     this_acct = get_acct(op_list[1])
 
     # login
@@ -286,37 +281,37 @@ def run_network_server():
 #                                                        #
 ##########################################################
 
-# def demo_bank_server():
-#     """ A function that exercises basic server functions and prints out the results. """
-#     # get the demo account from the database
-#     acct = get_acct("zz-99999")
-#     print(f"Test account '{acct.acct_number}' has PIN {acct.acct_pin}")
-#     print(f"Current account balance: {acct.acct_balance}")
-#     print(f"Attempting to deposit 123.45...")
-#     _, code, new_balance = acct.deposit(123.45)
-#     if not code:
-#         print(f"Successful deposit, new balance: {new_balance}")
-#     else:
-#         print(f"Deposit failed!")
-#     print(f"Attempting to withdraw 123.45 (same as last deposit)...")
-#     _, code, new_balance = acct.withdraw(123.45)
-#     if not code:
-#         print(f"Successful withdrawal, new balance: {new_balance}")
-#     else:
-#         print("Withdrawal failed!")
-#     print(f"Attempting to deposit 123.4567...")
-#     _, code, new_balance = acct.deposit(123.4567)
-#     if not code:
-#         print(f"Successful deposit (oops), new balance: {new_balance}")
-#     else:
-#         print(f"Deposit failed as expected, code {code}") 
-#     print(f"Attempting to withdraw 12345.45 (too much!)...")
-#     _, code, new_balance = acct.withdraw(12345.45)
-#     if not code:
-#         print(f"Successful withdrawal (oops), new balance: {new_balance}")
-#     else:
-#         print(f"Withdrawal failed as expected, code {code}")
-#     print("End of demo!")
+def demo_bank_server():
+    """ A function that exercises basic server functions and prints out the results. """
+    # get the demo account from the database
+    acct = get_acct("zz-99999")
+    print(f"Test account '{acct.acct_number}' has PIN {acct.acct_pin}")
+    print(f"Current account balance: {acct.acct_balance}")
+    print(f"Attempting to deposit 123.45...")
+    _, code, new_balance = acct.deposit(123.45)
+    if not code:
+        print(f"Successful deposit, new balance: {new_balance}")
+    else:
+        print(f"Deposit failed!")
+    print(f"Attempting to withdraw 123.45 (same as last deposit)...")
+    _, code, new_balance = acct.withdraw(123.45)
+    if not code:
+        print(f"Successful withdrawal, new balance: {new_balance}")
+    else:
+        print("Withdrawal failed!")
+    print(f"Attempting to deposit 123.4567...")
+    _, code, new_balance = acct.deposit(123.4567)
+    if not code:
+        print(f"Successful deposit (oops), new balance: {new_balance}")
+    else:
+        print(f"Deposit failed as expected, code {code}") 
+    print(f"Attempting to withdraw 12345.45 (too much!)...")
+    _, code, new_balance = acct.withdraw(12345.45)
+    if not code:
+        print(f"Successful withdrawal (oops), new balance: {new_balance}")
+    else:
+        print(f"Withdrawal failed as expected, code {code}")
+    print("End of demo!")
 
 ##########################################################
 #                                                        #
