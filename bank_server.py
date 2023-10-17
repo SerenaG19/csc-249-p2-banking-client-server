@@ -39,7 +39,7 @@ def amountIsValid(amount):
     value with at most two decimal places."""
     return isinstance(amount, float) and (round(amount, 2) == amount) and (amount >= 0)
 
-# TODO update this
+
 class CurrentState:
     """CurrentState instances keep track of details of the current state of the bank server machine"""
     logged_in = False
@@ -82,10 +82,11 @@ class BankAccount:
     def deposit(self, amount):
         """ Make a deposit. The value of amount must be valid for bank transactions. If amount is valid, update the acct_balance.
         This method returns three values: self, success_code, current balance.
-        Success codes are: 0: valid result; 1: invalid amount given. """
+        Success codes are: 0: valid result; 2: invalid amount given. """
         result_code = 0
         if not amountIsValid(amount):
-            result_code = 1
+            #result_code = 2
+            return self, 2, self.acct_balance
         else:
             # valid amount, so add it to balance and set succes_code 1
             self.acct_balance += amount
@@ -97,14 +98,16 @@ class BankAccount:
     def withdraw(self, amount):
         """ Make a withdrawal. The value of amount must be valid for bank transactions. If amount is valid, update the acct_balance.
         This method returns three values: self, success_code, current balance.
-        Success codes are: 0: valid result; 1: invalid amount given; 2: attempted overdraft. """
+        Success codes are: 0: valid result; 2: invalid amount given; 3: attempted overdraft. """
         result_code = 0
         if not amountIsValid(amount):
             # invalid amount, return error 
-            result_code = 1
+            # result_code = 2
+            return self, 2, self.acct_balance
         elif amount > self.acct_balance:
             # attempted overdraft
-            result_code = 2
+            #result_code = 3
+            return self, 3, self.acct_balance
         else:
             # all checks out, subtract amount from the balance
             self.acct_balance -= amount
@@ -193,19 +196,20 @@ def validate_acct_pin_pair(client_msg, state: CurrentState):
         state.set_accountNum(login_credentials_list[1])
         state.logIn()
 
+    # invalid login credentials
     else: result_code = 1
 
     return result_code, state
 
 def interpret_client_operation(msg, thisState:CurrentState):
     """Parses client request, sends client account balance, performs request.
-    Success codes are: 0: valid result; 1: invalid amount given. """
+    Result codes are: 0: valid result; 1: invalid login; 2: invalid amount; 3: attempted overdraft"""
+
     # TODO 1. Validate operation format, 2. Send appropriate and specific responses to client...
     
-    result_code = 5
     cur_state = thisState
 
-    op_list = msg.split(",") #op[0] = "l", "b", "d", or "w" | op[1] = param1, op[2] = param2
+    op_list = msg.split(",") #op[0] = "l", "b", "d", or "w" | op[1] = param
     
     this_acct = get_acct(op_list[1])
 
@@ -214,22 +218,19 @@ def interpret_client_operation(msg, thisState:CurrentState):
         result_code, cur_state =  validate_acct_pin_pair(msg, thisState) # check whether the acct_num - pin pair is valid
 
     # balance check
-    if(op_list[0] == "b"):
+    elif(op_list[0] == "b"):
         # no other steps needed. just communicate successful exchange of info between server and client
         # the server by default sends back the account balance
         # do not need to update the state
         result_code = 0
 
     # deposit
-    if(op_list[0] == "d"):
+    elif(op_list[0] == "d"):
         _, result_code, _ = this_acct.deposit(float(op_list[2]))
 
     # withdraw
-    if(op_list[0] == "w"):
+    else: # (op_list[0] == "w"):
         _, result_code, _ = this_acct.withdraw(float(op_list[2]))
-
-
-    #TODO else:
     
     return result_code, cur_state, get_balance(op_list[1])
 
@@ -257,7 +258,7 @@ def run_network_server():
                 
                 # receive client message
                 client_msg = conn.recv(1024)
-                print("Received client message: " + client_msg.decode('utf-8'))
+                print("Received client message: " + client_msg.decode('utf-8') + "\n")
                 
                 # if conn.recv() returns an empty bytes object, the server knows the client closed the connection
                 if not client_msg:
@@ -266,13 +267,13 @@ def run_network_server():
                 # send message to client in the form of resultcode,balance
                 result_code, current_state, bal = interpret_client_operation( client_msg.decode('utf-8') , thisState )
                 response = str(result_code) + "," + str(bal)
-                print("Sending client response: " + response)
+                print("Sending client response: " + response + "\n")
                 conn.sendall( response.encode('utf-8') )
 
                 thisState = current_state
+        
+        thisState.logout()
     
-    thisState.logout()
-
     return # break out of the loop when the client terminates the session
    
 
@@ -285,37 +286,37 @@ def run_network_server():
 #                                                        #
 ##########################################################
 
-def demo_bank_server():
-    """ A function that exercises basic server functions and prints out the results. """
-    # get the demo account from the database
-    acct = get_acct("zz-99999")
-    print(f"Test account '{acct.acct_number}' has PIN {acct.acct_pin}")
-    print(f"Current account balance: {acct.acct_balance}")
-    print(f"Attempting to deposit 123.45...")
-    _, code, new_balance = acct.deposit(123.45)
-    if not code:
-        print(f"Successful deposit, new balance: {new_balance}")
-    else:
-        print(f"Deposit failed!")
-    print(f"Attempting to withdraw 123.45 (same as last deposit)...")
-    _, code, new_balance = acct.withdraw(123.45)
-    if not code:
-        print(f"Successful withdrawal, new balance: {new_balance}")
-    else:
-        print("Withdrawal failed!")
-    print(f"Attempting to deposit 123.4567...")
-    _, code, new_balance = acct.deposit(123.4567)
-    if not code:
-        print(f"Successful deposit (oops), new balance: {new_balance}")
-    else:
-        print(f"Deposit failed as expected, code {code}") 
-    print(f"Attempting to withdraw 12345.45 (too much!)...")
-    _, code, new_balance = acct.withdraw(12345.45)
-    if not code:
-        print(f"Successful withdrawal (oops), new balance: {new_balance}")
-    else:
-        print(f"Withdrawal failed as expected, code {code}")
-    print("End of demo!")
+# def demo_bank_server():
+#     """ A function that exercises basic server functions and prints out the results. """
+#     # get the demo account from the database
+#     acct = get_acct("zz-99999")
+#     print(f"Test account '{acct.acct_number}' has PIN {acct.acct_pin}")
+#     print(f"Current account balance: {acct.acct_balance}")
+#     print(f"Attempting to deposit 123.45...")
+#     _, code, new_balance = acct.deposit(123.45)
+#     if not code:
+#         print(f"Successful deposit, new balance: {new_balance}")
+#     else:
+#         print(f"Deposit failed!")
+#     print(f"Attempting to withdraw 123.45 (same as last deposit)...")
+#     _, code, new_balance = acct.withdraw(123.45)
+#     if not code:
+#         print(f"Successful withdrawal, new balance: {new_balance}")
+#     else:
+#         print("Withdrawal failed!")
+#     print(f"Attempting to deposit 123.4567...")
+#     _, code, new_balance = acct.deposit(123.4567)
+#     if not code:
+#         print(f"Successful deposit (oops), new balance: {new_balance}")
+#     else:
+#         print(f"Deposit failed as expected, code {code}") 
+#     print(f"Attempting to withdraw 12345.45 (too much!)...")
+#     _, code, new_balance = acct.withdraw(12345.45)
+#     if not code:
+#         print(f"Successful withdrawal (oops), new balance: {new_balance}")
+#     else:
+#         print(f"Withdrawal failed as expected, code {code}")
+#     print("End of demo!")
 
 ##########################################################
 #                                                        #
