@@ -89,7 +89,10 @@ class BankAccount:
         else:
             # valid amount, so add it to balance and set succes_code 1
             self.acct_balance += amount
-        return self, result_code, round(self.acct_balance,2)
+
+        self.acct_balance = round(self.acct_balance,2)
+        
+        return self, result_code, self.acct_balance
 
     def withdraw(self, amount):
         """ Make a withdrawal. The value of amount must be valid for bank transactions. If amount is valid, update the acct_balance.
@@ -105,7 +108,10 @@ class BankAccount:
         else:
             # all checks out, subtract amount from the balance
             self.acct_balance -= amount
-        return self, result_code, round(self.acct_balance,2)
+
+            self.acct_balance = round(self.acct_balance,2)
+
+        return self, result_code, self.acct_balance
     
     # validate pin inside the class
     def validatePin(self, otherPin):
@@ -216,9 +222,14 @@ def interpret_client_operation(msg, thisState:CurrentState):
 
     # deposit
     if(op_list[0] == "d"):
-        _, result_code, new_balance = this_acct.deposit(float(op_list[2]))
+        _, result_code, _ = this_acct.deposit(float(op_list[2]))
 
     # withdraw
+    if(op_list[0] == "w"):
+        _, result_code, _ = this_acct.withdraw(float(op_list[2]))
+
+
+    #TODO else:
     
     return result_code, cur_state, get_balance(op_list[1])
 
@@ -255,6 +266,7 @@ def run_network_server():
                 # send message to client in the form of resultcode,balance
                 result_code, current_state, bal = interpret_client_operation( client_msg.decode('utf-8') , thisState )
                 response = str(result_code) + "," + str(bal)
+                print("Sending client response: " + response)
                 conn.sendall( response.encode('utf-8') )
 
                 thisState = current_state

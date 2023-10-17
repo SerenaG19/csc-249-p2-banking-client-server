@@ -50,7 +50,6 @@ def check_logininfo_with_server(sock, login_info):
     result_code = int(server_response_list[0])
     result_code = bool(result_code)
     validated = not result_code # validated is flipped value of result_code
-    # validated = int(server_response_list[0]) # TODO is ? result code is flipped value of validated, since 0 is success for the result_code
     
     bal = server_response_list[1]
     return validated, bal
@@ -67,24 +66,31 @@ def login_to_server(sock, acct_num, pin):
 
     # concatenate the acct_num and pin into one string, with a comma delimeter, to be read by the server
     login_info = "l," + acct_num + "," + pin
-    # login_info = acct_num + "," + pin
     
     # call check_logininfo_with_server function
     validated, bal = check_logininfo_with_server(sock, login_info)
     return validated, bal
 
 def get_login_info():
-    """ Get info from customer. """
-    #TODO: Validate inputs, ask again if given invalid input.
+    """ Returns account number and pin number."""
     acct_num = input("Please enter your account number: ")
     pin = input("Please enter your four digit PIN: ")
     return acct_num, pin
 
+def get_acct_balance(sock, acct_num):
+    """Returns the account balance from the server."""
+    client_msg = "b," + acct_num
+    send_to_server(sock, client_msg) # send the login_info concatenated string to the server
+    server_response = get_from_server(sock)
+    server_response_list = server_response.split(",")
+    bal = server_response_list[1]
+    return bal
+
+# TODO: Handle error codes - check server response for success or failure
 def process_deposit(sock, acct_num):
-    """ TODO: Write this """
+    """TODO Returns balance after successfully depositing money into account."""
     bal = get_acct_balance(sock, acct_num)
     amt = input(f"How much would you like to deposit? (You have '${bal}' available)\n")
-    # TODO communicate with the server to request the deposit, check response for success or failure.
     client_msg = "d," + acct_num + "," + amt
     send_to_server(sock, client_msg)
     server_response = get_from_server(sock)
@@ -93,24 +99,20 @@ def process_deposit(sock, acct_num):
     print("Deposit transaction completed.")
     return bal
 
-def get_acct_balance(sock, acct_num):
-    """ TODO: Write this """
-    # bal = 0.0
-    # TODO code needed here, to get balance from server then return it
-    client_msg = "b," + acct_num
-    send_to_server(sock, client_msg) # send the login_info concatenated string to the server
-    server_response = get_from_server(sock)
-    server_response_list = server_response.split(",")
-    bal = server_response_list[1]
-    return bal
+# TODO clean up code so repeated lines are in a function
 
+# TODO: Handle error codes - check server response for success or failure
 def process_withdrawal(sock, acct_num):
     """ TODO: Write this code. """
     bal = get_acct_balance(sock, acct_num)
-    am1t = input(f"How much would you like to withdraw? (You have ${bal} available)    ")
-    # TODO communicate with the server to request the withdrawal, check response for success or failure.
+    amt = input(f"How much would you like to withdraw? (You have ${bal} available)\n")
+    client_msg = "w," + acct_num + "," + amt
+    send_to_server(sock, client_msg)
+    server_response = get_from_server(sock)
+    server_response_list = server_response.split(",")
+    bal = server_response_list[1]
     print("Withdrawal transaction completed.")
-    return
+    return bal
 
 def process_customer_transactions(sock, acct_num):
     """ Ask customer for a transaction, communicate with server. TODO: Revise as needed. """
@@ -126,7 +128,7 @@ def process_customer_transactions(sock, acct_num):
         elif req == 'd':
             bal = process_deposit(sock, acct_num)
         elif req == 'w':
-            process_withdrawal(sock, acct_num)
+            bal = process_withdrawal(sock, acct_num)
         else:
             bal = get_acct_balance(sock, acct_num)
         print("You have " + bal + " available.")
@@ -139,8 +141,8 @@ def run_atm_core_loop(sock):
     counter = 3
     acct_num, pin = get_login_info()
     validated, bal = login_to_server(sock, acct_num, pin)
-    print("Account number and PIN do not match. Please try again.")
     if not validated: 
+        print("Account number and PIN do not match. Please try again.")
         while validated == False and counter >= 0:
             acct_num, pin = get_login_info()
             validated, bal = login_to_server(sock, acct_num, pin)
