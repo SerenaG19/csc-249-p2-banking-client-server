@@ -83,14 +83,15 @@ def get_login_info():
 def process_deposit(sock, acct_num):
     """ TODO: Write this code. """
     bal = get_acct_balance(sock, acct_num)
-    # print(bal)
     amt = input(f"How much would you like to deposit? (You have '${bal}' available)")
     # TODO communicate with the server to request the deposit, check response for success or failure.
-    msg = "d," + amt
-    send_to_server(msg.encode('utf-8'))
-
+    client_msg = "d," + acct_num + "," + amt
+    send_to_server(sock, client_msg)
+    server_response = get_from_server(sock)
+    server_response_list = server_response.split(",")
+    bal = server_response_list[1]
     print("Deposit transaction completed.")
-    return
+    return bal
 
 def get_acct_balance(sock, acct_num):
     """ TODO: Write this """
@@ -106,7 +107,7 @@ def get_acct_balance(sock, acct_num):
 def process_withdrawal(sock, acct_num):
     """ TODO: Write this code. """
     bal = get_acct_balance(sock, acct_num)
-    am1t = input(f"How much would you like to withdraw? (You have ${bal} available)")
+    am1t = input(f"How much would you like to withdraw? (You have ${bal} available)    ")
     # TODO communicate with the server to request the withdrawal, check response for success or failure.
     print("Withdrawal transaction completed.")
     return
@@ -128,7 +129,7 @@ def process_customer_transactions(sock, acct_num):
             process_withdrawal(sock, acct_num)
         else:
             bal = get_acct_balance(sock, acct_num)
-            print("You have " + bal + " available.")
+        print("You have " + bal + " available.")
 
 
 def run_atm_core_loop(sock):

@@ -43,21 +43,14 @@ def amountIsValid(amount):
 class CurrentState:
     """CurrentState instances keep track of details of the current state of the bank server machine"""
     logged_in = False
-    this_acct = 0
-    acccountNumber = ''
-    pin = ''
-    bal = ''
+    acccountNumber = 'zz-00000'
+    sessionID = 0
 
-    def __init__(self, logIn = False, acct = 0, actNum = "zz-00000", pinNum = "0000", balance = 0.0):
+    def __init__(self, logIn = False, actNum = "zz-00000", session_ID = 0):
         """ Initialize the state variables of a new CurrentState instance. """
         self.logged_in = logIn
-        self.this_acct = acct
         self.acccountNumber = actNum
-        self.pin = pinNum
-        self.bal = balance
-
-    def updateBalance(self, newBalance):
-        self.bal = newBalance
+        self.sessionID = session_ID
 
     def logIn(self):
         self.logged_in = True
@@ -65,15 +58,11 @@ class CurrentState:
     def logout(self):
         self.logged_in = False
 
-    def setAccountNum(self, actNum):
-        self.acccountNumber = actNum
+    def set_sessionID(self,ID):
+        self.sessionID = ID
 
-    def setPin(self, pn):
-        self.pin = pn
-
-    def setAcct(self, acct):
-        self.this_acct = acct
-
+    def set_accountNum(self, ac):
+        self.acccountNumber = ac
 
 class BankAccount:
     """BankAccount instances are used to encapsulate various details about individual bank accounts."""
@@ -117,14 +106,22 @@ class BankAccount:
             # all checks out, subtract amount from the balance
             self.acct_balance -= amount
         return self, result_code, round(self.acct_balance,2)
+    
+    # validate pin inside the class
+    def validatePin(self, otherPin):
+        return self.acct_pin == otherPin
 
 def get_acct(acct_num):
     """ Lookup acct_num in the ALL_ACCOUNTS database and return the account object if it's found.
         Return False if the acct_num is invalid. """
     if acctNumberIsValid(acct_num) and (acct_num in ALL_ACCOUNTS):
-        return ALL_ACCOUNTS[acct_num]
+        return ALL_ACCOUNTS[acct_num] 
     else:
         return False
+    
+def get_balance(acct_num):
+    """Returns this account's balance"""
+    return get_acct(acct_num).acct_balance
 
 def load_account(num_str, pin_str, bal_str):
     """ Load a presumably new account into the in-memory database. All supplied arguments are expected to be strings. """
@@ -185,21 +182,16 @@ def validate_acct_pin_pair(client_msg, state: CurrentState):
     login_credentials_list = client_msg.split(",") #parse the client's message based on a comma delimeter
 
     this_acct = get_acct(login_credentials_list[1]) # returns the BankAccount object being requested
-    if login_credentials_list[2] == this_acct.acct_pin:
-
+    if this_acct.validatePin(login_credentials_list[2]): #get_pin(login_credentials_list[1]):
         result_code = 0
-
+        state.set_accountNum(login_credentials_list[1])
         state.logIn()
-        state.setAcct(this_acct)
-        state.setAccountNum(this_acct.acct_number)
-        state.setPin(this_acct.acct_pin)
-        state.updateBalance(this_acct.acct_balance)
 
     else: result_code = 1
 
     return result_code, state
 
-def interpret_client_operation(msg, thisState):
+def interpret_client_operation(msg, thisState:CurrentState):
     """Parses client request, sends client account balance, performs request.
     Success codes are: 0: valid result; 1: invalid amount given. """
     # TODO 1. Validate operation format, 2. Send appropriate and specific responses to client...
@@ -209,6 +201,8 @@ def interpret_client_operation(msg, thisState):
 
     op_list = msg.split(",") #op[0] = "l", "b", "d", or "w" | op[1] = param1, op[2] = param2
     
+    this_acct = get_acct(op_list[1])
+
     # login
     if(op_list[0] == "l"):
         result_code, cur_state =  validate_acct_pin_pair(msg, thisState) # check whether the acct_num - pin pair is valid
@@ -220,35 +214,18 @@ def interpret_client_operation(msg, thisState):
         # do not need to update the state
         result_code = 0
 
-    
     # deposit
-
+    if(op_list[0] == "d"):
+        _, result_code, new_balance = this_acct.deposit(op_list[2])
 
     # withdraw
-
-    # balance check
     
-    # first, the client always requests the acct balance. send acct balance:
-
-
-    # deposit
-    # if op == "d":        
-    #     # op is the client's message in the following format:
-    #     # d,<amount>
-
-    #     # first, parse client's message
-    #     op_list = op.split(",") #op[0] = "d", op[1] = amt
-    #     # attempt deposit
-    #     this_acct, result_code, new_bal = this_acct.deposit(this_acct, op_list[1])
-    #     return  this_acct, result_code, new_bal
-    
-
-    # if op == "d" or op =="w"
-    
-    return result_code, cur_state
+    return result_code, cur_state, get_balance(op_list[1])
 
 def run_network_server():
     """ Runs the communication between the server and the client. """
+
+    sessionID = 0
 
     # Enable just one connection w ATM client ########################################################################
     print("Establishing connection to client - listening for connections at IP", HOST, "and port", PORT, " \n")
@@ -256,15 +233,17 @@ def run_network_server():
         s.bind((HOST, PORT)) # associates the socket with the particular desired network interface and port number
         s.listen() # enables the server to accept connections; also accounts for the server's backlogged connections (ones that haven't yet been accepted)
         conn, addr = s.accept() # accept() blocks execution and waits for an incoming connection
+
         with conn: # once a connection is made with the client, a new socket object is returned from accept() (different socket from the listening socket)
+
+            sessionID = sessionID + 1 # set session ID
+
             print(f"Established connection, {addr}\n")
 
-            thisState = CurrentState()
+            thisState = CurrentState(session_ID=sessionID)
 
             while True: # infinite while loop to loop over blocking calls to conn.recv()
                 
-                
-
                 # receive client message
                 client_msg = conn.recv(1024)
                 print("Received client message: " + client_msg.decode('utf-8'))
@@ -274,59 +253,15 @@ def run_network_server():
                     break 
                 
                 # send message to client in the form of resultcode,balance
-                result_code, current_state = interpret_client_operation( client_msg.decode('utf-8') , thisState )
-                response = str(result_code) + "," + str(thisState.bal)
+                result_code, current_state, bal = interpret_client_operation( client_msg.decode('utf-8') , thisState )
+                response = str(result_code) + "," + str(bal)
                 conn.sendall( response.encode('utf-8') )
 
                 thisState = current_state
     
-
     thisState.logout()
 
     return # break out of the loop when the client terminates the session
-
-
-
-        # ###########################################################################################################
-        # PREVIOUS CODE
-                # login_info = conn.recv(1024)
-                # print("Received login request: " + login_info.decode('utf-8'))
-                # if not login_info:
-                #    break # if conn.recv() returns an empty bytes object, the server knows the client closed the connection
-                
-                # # log in
-                # # TODO MAKE WHILE LOOP, DECREMENT COUNTER
-                # login_info = login_info.decode('utf-8')
-                # result_code_login, this_acct = validate_acct_pin_pair(login_info) # check whether the acct_num - pin pair is valid
-                # login_response = str(result_code_login).encode('utf-8')
-                # conn.sendall(login_response) # send server response to the client
-
-                # # respond to client's request operation
-                # acct_num = conn.recv(1024)
-                # if not acct_num:
-                #    break # if conn.recv() returns an empty bytes object, the server knows the client closed the connection
-                
-                # # send client the acct balance
-                # acct_num = acct_num.decode('utf-8')
-                # print("Received client operation request for account: " + acct_num)
-                # this_acct, result_code = interpret_client_operation(acct_num, this_acct)
-                # bal = str(this_acct.acct_balance)
-                # bal = bal.encode('utf-8')
-                # conn.sendall(bal) # send server response to the client
-        # ###########################################################################################################
-
-
-
-                
-                # result_code = 1 # begin loop to work w client to perform valid operations
-                # while result_code != 0:
-                #     this_acct, result_code, new_bal = interpret_client_operation(operation, this_acct)
-
-
-
-                # print(f"Received client message '{login_info!r}' [{len(login_info)} bytes] \n") # print client message
-        # ###########################################################################################################
-
    
 
 ##########################################################
