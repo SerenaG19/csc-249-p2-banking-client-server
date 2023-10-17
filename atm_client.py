@@ -49,7 +49,7 @@ def check_logininfo_with_server(sock, login_info):
     # result_code = bool(server_response_list[0])
     result_code = int(server_response_list[0])
     result_code = bool(result_code)
-    validated = not result_code
+    validated = not result_code # validated is flipped value of result_code
     # validated = int(server_response_list[0]) # TODO is ? result code is flipped value of validated, since 0 is success for the result_code
     
     bal = server_response_list[1]
@@ -81,9 +81,9 @@ def get_login_info():
     return acct_num, pin
 
 def process_deposit(sock, acct_num):
-    """ TODO: Write this code. """
+    """ TODO: Write this """
     bal = get_acct_balance(sock, acct_num)
-    amt = input(f"How much would you like to deposit? (You have '${bal}' available)")
+    amt = input(f"How much would you like to deposit? (You have '${bal}' available)\n")
     # TODO communicate with the server to request the deposit, check response for success or failure.
     client_msg = "d," + acct_num + "," + amt
     send_to_server(sock, client_msg)
@@ -124,7 +124,7 @@ def process_customer_transactions(sock, acct_num):
             # if customer wants to exit, break out of the loop
             break
         elif req == 'd':
-            process_deposit(sock, acct_num)
+            bal = process_deposit(sock, acct_num)
         elif req == 'w':
             process_withdrawal(sock, acct_num)
         else:
@@ -135,17 +135,27 @@ def process_customer_transactions(sock, acct_num):
 def run_atm_core_loop(sock):
     """ Given an active network connection to the bank server, run the core business loop. """
 
-    # Enclose in a while loop with a counter that starts at 3
+    # Enclose login attempt in a while loop with a counter
+    counter = 3
     acct_num, pin = get_login_info()
     validated, bal = login_to_server(sock, acct_num, pin)
-
+    print("Account number and PIN do not match. Please try again.")
+    if not validated: 
+        while validated == False and counter >= 0:
+            acct_num, pin = get_login_info()
+            validated, bal = login_to_server(sock, acct_num, pin)
+            # result_code = 0
+            print("Account number and PIN do not match. Please try again. Number of login attempts remaining: " + str(counter))
+            counter = counter - 1
     if validated: # result_code = 0
         print("Thank you, your credentials have been validated. Your balance is " + bal + ".")
-    else: # result_code = 1
-        print("Account number and PIN do not match. Terminating ATM session. Please try again.")
-        return False
+
+    else: return False
+
     process_customer_transactions(sock, acct_num)
+
     print("ATM session terminating.")
+
     return True
 
 ##########################################################

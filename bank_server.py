@@ -216,7 +216,7 @@ def interpret_client_operation(msg, thisState:CurrentState):
 
     # deposit
     if(op_list[0] == "d"):
-        _, result_code, new_balance = this_acct.deposit(op_list[2])
+        _, result_code, new_balance = this_acct.deposit(float(op_list[2]))
 
     # withdraw
     
