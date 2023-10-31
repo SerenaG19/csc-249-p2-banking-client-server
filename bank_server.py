@@ -46,6 +46,8 @@ class CurrentState:
     acccountNumber = 'zz-00000'
     sessionID = 0
 
+    #TODO: Evaluate: is it necessary for client to send it's Session ID (unique token) back to server in every message?
+
     def __init__(self, logIn = False, actNum = "zz-00000", session_ID = 0):
         """ Initialize the state variables of a new CurrentState instance. """
         self.logged_in = logIn
@@ -187,6 +189,9 @@ def validate_acct_pin_pair(client_msg, state: CurrentState):
 
     # server expecting a message of the form l,acct_num,pin
 
+    #TODO: incorporate boolean logged_in
+    #TODO: if not logged_in, DO NOT ALLOW ANY CLIENT TO PROCEED WITH ACCOUNT OPERATIONS
+
     login_credentials_list = client_msg.split(",") #parse the client's message based on a comma delimeter
 
     this_acct = get_acct(login_credentials_list[1]) # returns the BankAccount object being requested
@@ -205,6 +210,9 @@ def interpret_client_operation(msg, thisState:CurrentState):
     Result codes are: 0: valid result; 1: invalid login; 2: invalid amount; 3: attempted overdraft""" 
 
     cur_state = thisState
+
+    #TODO BEFORE splitting, call a test to see if revieved message: (1) is __ items long, (2) is of type (whatever -- string, int.... whatever it should be), (3) 
+
     op_list = msg.split(",") #op[0] = "l", "b", "d", or "w" | op[1] = param
     this_acct = get_acct(op_list[1])
 
@@ -250,6 +258,8 @@ def run_network_server():
             thisState = CurrentState(session_ID=sessionID)
 
             while True: # infinite while loop to loop over blocking calls to conn.recv()
+
+                #TODO - try to break this. make sure no one could access process_transcations w/out loggin in
                 
                 # receive client message
                 client_msg = conn.recv(1024)
@@ -322,6 +332,9 @@ def demo_bank_server():
 ##########################################################
 
 if __name__ == "__main__":
+
+    #TODO: Connect to this server using P1 client to test
+
     # on startup, load all the accounts from the account file
     load_all_accounts(ACCT_FILE)
     # uncomment the next line in order to run a simple demo of the server in action
