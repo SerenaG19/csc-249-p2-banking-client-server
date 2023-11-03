@@ -251,12 +251,17 @@ def run_network_server():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: #creates socket object with address family AF_INET and socket type SOCK_STREAM
         s.bind((HOST, PORT)) # associates the socket with the particular desired network interface and port number
         s.listen() # enables the server to accept connections; also accounts for the server's backlogged connections (ones that haven't yet been accepted)
+       
+        # from one-off:
         # conn, addr = s.accept() # accept() blocks execution and waits for an incoming connection
         
         print(f"Listening on,{(HOST, PORT)}")
 
-        # s.setblocking(False) # configures the socket in non-blocking mode
-        # sel.register(s,selectors.EVENT_READ,data=None) #registers the socket to be monitored with sel.select()
+        s.setblocking(False) # configures the open socket in non-blocking mode
+        
+        # registers nonblocking open socket w selector object
+        # the listening socket will generate a new event when a new connection is ready
+        sel.register(s,selectors.EVENT_READ,data=None) #registers the socket to be monitored with sel.select()
 
         #TODO 
 
@@ -267,18 +272,81 @@ def run_network_server():
         #         # see more details at https://realpython.com/python-sockets/#handling-multiple-connections
 
         #         #TODO set timeout to prevent clients from keeping a connection open indefinitely
-        #         events = sel.select(timeout=None) #blocks until there are sockets ready for I/O
+                # below line is configured by sel.register line above 
+        #         events = sel.select(timeout=None) #blocks until there are sockets ready for I/O, i.e. have events ready to be processed
         #         for key, mask in events:
-        #             #listening socket, need to accept the connection
-        #             if key.data is None:
-        #                 accept_wrapper(key.fileobj)
+        #             #listening socket, need to accept the connection (i.e. new incoming client connxn, ready to be accepted)
+        #             if key.data is None: #returns third argument of object passed into sel.reg (data)
+        #                 accept_wrapper(key.fileobj) #accepts the new incoming connection
         #             # client socket which has already been accepted and needs servicing
-        #             else:
+        #             else: #for prev. accepted connxn's, those key.data values are NOT none --> this connexn exists
         #                 service_connection(key, mask)
         # except KeyboardInterrupt: # if user hits delete or CTRL+C
         #     print("Caught keyboard interrupt, exiting")
         # finally:
         #     sel.close()
+
+
+
+    #TODO -- Uncomment, document
+    #NOTES. Analogy: client knocks on the door. Server opens the door / initiates the connection
+# def accept_wrapper(sock):
+
+    # this is a NEW socket, different from the one the server is listening on
+#     # sock.accept() will NOT block
+      # conn = connection object, addr is address of the connection
+#     conn, addr = sock.accept()  # Should be ready to read
+#     print(f"Accepted connection from {addr}")
+    # ensures the conn object does not block
+#     conn.setblocking(False)
+    # in Python, SimpleNamespace is an unnamed instance of a class
+    # Replace HERE w CurrentState
+    #data = types.SimpleNamespace(sessionID=addr, inb=b"", outb=b"")
+
+#     data_here = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
+
+    # Don't worry about EVENT_WRITE part. 
+    
+#     events = selectors.EVENT_READ | selectors.EVENT_WRITE
+    # register this new connxn, the events of interest (EVENT_READ), and CurrentState
+#     sel.register(conn, events, data=data_here)
+
+
+# DO NOT worry about the client sending too much data 
+
+
+#NOTES
+# Receives the data.
+#TODO -- have this function pass the data and any other needed info into the bank core functions
+# Called when an existing connection is opened
+# def service_connection(key, mask):
+    # Pulls out socket associated w the connxn
+#     sock = key.fileobj
+    # Pulls out the data associated with this register
+#     data = key.data
+#     if mask & selectors.EVENT_READ:
+    # receive the data from this register, in the form of a CurrentState object
+    # TODO -- restructure code, eliminate redundancy
+#         recv_data = sock.recv(1024)  # Should be ready to read
+
+    # if recv_data() returns an empty bytes object, the server knows the client closed the connection
+    # if not recv_data:
+    #     break 
+
+# TODO -- call interpret_client_operation somewhere around here --> NEED TO PASS ALONG THE SOCKET AS AN OBJECT
+# TODO -- need to replicate code below w sendall
+
+#         else:
+#             print(f"Closing connection to {data.addr}")
+#             sel.unregister(sock)
+#             sock.close()
+
+
+
+
+
+
+
 
 
 ## THIS CODE WORKED FOR P2 PART 1. NOT SURE WHERE IT BELONGS NOW
