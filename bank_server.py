@@ -4,6 +4,7 @@
 # Serena Geroe
 
 import socket
+import selectors
 
 HOST = "127.0.0.1"      # Standard loopback interface address (localhost)
 PORT = 65432            # Port to listen on (non-privileged ports are > 1023)
@@ -244,12 +245,56 @@ def run_network_server():
 
     # Enable just one connection w ATM client ########################################################################
     print("Establishing connection to client - listening for connections at IP", HOST, "and port", PORT, " \n")
+     
+    sel = selectors.DefaultSelector()
+    
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: #creates socket object with address family AF_INET and socket type SOCK_STREAM
         s.bind((HOST, PORT)) # associates the socket with the particular desired network interface and port number
         s.listen() # enables the server to accept connections; also accounts for the server's backlogged connections (ones that haven't yet been accepted)
+        # conn, addr = s.accept() # accept() blocks execution and waits for an incoming connection
+        
+        print(f"Listening on,{(HOST, PORT)}")
+
+        # s.setblocking(False) # configures the socket in non-blocking mode
+        # sel.register(s,selectors.EVENT_READ,data=None) #registers the socket to be monitored with sel.select()
+
+        #TODO 
+
+        # try:
+        #     while True:
+        #         # events is a list of tuples, one per socket
+        #         # each tuple consists of a key (a SelectorKey namedtuple) and a mask
+        #         # see more details at https://realpython.com/python-sockets/#handling-multiple-connections
+
+        #         #TODO set timeout to prevent clients from keeping a connection open indefinitely
+        #         events = sel.select(timeout=None) #blocks until there are sockets ready for I/O
+        #         for key, mask in events:
+        #             #listening socket, need to accept the connection
+        #             if key.data is None:
+        #                 accept_wrapper(key.fileobj)
+        #             # client socket which has already been accepted and needs servicing
+        #             else:
+        #                 service_connection(key, mask)
+        # except KeyboardInterrupt: # if user hits delete or CTRL+C
+        #     print("Caught keyboard interrupt, exiting")
+        # finally:
+        #     sel.close()
+
+
+## THIS CODE WORKED FOR P2 PART 1. NOT SURE WHERE IT BELONGS NOW
+        # The following line ensures the listening socket is ready to read
         conn, addr = s.accept() # accept() blocks execution and waits for an incoming connection
 
         with conn: # once a connection is made with the client, a new socket object is returned from accept() (different socket from the listening socket)
+
+            print(f"Accepted connection from {addr}\n")
+            # conn.setblocking(False)
+
+            #TODO
+            # data = CurrentState
+            # events = selectors.EVENT_READ | selectors.EVENT_WRITE
+            # sel.register(conn, events, data=data)
+
 
             sessionID = sessionID + 1 # set session ID
 
