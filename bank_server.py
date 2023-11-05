@@ -236,14 +236,96 @@ def interpret_client_operation(msg, thisState:CurrentState):
     else: # (op_list[0] == "w"):
         _, result_code, _ = this_acct.withdraw(float(op_list[2]))
     
-    return result_code, cur_state, get_balance(op_list[1])
+    return result_code, get_balance(op_list[1])
+    
+def accept_wrapper(sock, sel, seshID):
+    """ Initiates the connection between the server and client, and sets the connection to be non-blocking.
+    Takes as input parameters the socket object, the sel (selectors object), and the session ID.
+    Returns this conn (connection object)."""
+
+    # Analogy: client knocks on the door. Server opens the door / initiates the connection
+    # this is a NEW socket, different from the one the server is listening on
+    # note: sock.accept() will NOT block
+    # conn = connection object, addr is address of the connection
+    conn, addr = sock.accept()  # Should be ready to read
+    
+    print(f"Accepted connection from {addr}")
+    
+    # ensures the conn object does not block
+    conn.setblocking(False)
+
+    # Instantiate a new CurrentState object, with the current session ID. set logged in to False.
+    # do not set account number yet, since that will be taken care of in service_connection
+    data_here = CurrentState(session_ID=seshID,logIn=False)
+
+    #Don't worry about EVENT_WRITE part. 
+    
+    events = selectors.EVENT_READ | selectors.EVENT_WRITE
+    
+    # register this new connxn, the events of interest (EVENT_READ), and CurrentState
+    sel.register(conn, events, data=data_here)
+
+    return conn, addr
+
+
+# Receives the data.
+#TODO -- have this function pass the data and any other needed info into the bank core functions
+def service_connection(sel, key, mask, conn, addr):
+    """ Used when an existing connection is opened, this function
+    receives the data from the client and listens for whether the client closed the connection.
+    Takes as input the selector object, key, mask, connection object, and address for this connection."""    
+
+   # Pulls out socket associated w the connxn
+    sock = key.fileobj
+    #Pulls out the data associated with this register
+    data = key.data
+    if mask & selectors.EVENT_READ:
+   # receive the data from this register, in the form of a CurrentState object
+
+    #TODO -- restructure code, eliminate redundancy
+
+        recv_data = sock.recv(1024)  # Should be ready to read
+        # Note: DO NOT worry about the client sending too much data 
+        print("Received client message: " + recv_data.decode('utf-8') + "\n")
+        
+        # TODO -- call interpret_client_operation somewhere around here --> NEED TO PASS ALONG THE SOCKET AS AN OBJECT
+        # TODO -- need to replicate code below w sendall
+
+        if not recv_data:
+            #returns an empty bytes object, the server knows the client closed the connection
+            print(f"Closing connection to {data.addr}")
+            sel.unregister(sock)
+            sock.close()
+            # TODO - this might need fixing
+            data.logout()
+
+        client_msg = recv_data.decode('utf-8')
+        #note: data is type CurrentState
+        run_bank_operations(conn, addr, client_msg, thisState=data)
+ 
+
+def run_bank_operations(conn, addr, client_msg, thisState):
+        
+    # from one-off:   conn, addr = s.accept() # accept() blocks execution and waits for an incoming connection
+
+    print(f"Established connection, {addr}\n")
+
+    while True: # infinite while loop to loop over blocking calls to conn.recv()
+
+        #TODO - try to break this. make sure no one could access process_transcations w/out loggin in              
+
+        # send message to client in the form of resultcode,balance
+        result_code, bal = interpret_client_operation( client_msg.decode('utf-8') , thisState )
+        response = str(result_code) + "," + str(bal)
+        print("Sending client response: " + response + "\n")
+        conn.sendall( response.encode('utf-8') )
+
 
 def run_network_server():
     """ Runs the communication between the server and the client. """
-
+    # represents the number of sessions open, where each value is an identifier for each session
     sessionID = 0
 
-    # Enable just one connection w ATM client ########################################################################
     print("Establishing connection to client - listening for connections at IP", HOST, "and port", PORT, " \n")
      
     sel = selectors.DefaultSelector()
@@ -252,8 +334,7 @@ def run_network_server():
         s.bind((HOST, PORT)) # associates the socket with the particular desired network interface and port number
         s.listen() # enables the server to accept connections; also accounts for the server's backlogged connections (ones that haven't yet been accepted)
        
-        # from one-off:
-        # conn, addr = s.accept() # accept() blocks execution and waits for an incoming connection
+        # from one-off: conn, addr = s.accept() # accept() blocks execution and waits for an incoming connection
         
         print(f"Listening on,{(HOST, PORT)}")
 
@@ -263,137 +344,32 @@ def run_network_server():
         # the listening socket will generate a new event when a new connection is ready
         sel.register(s,selectors.EVENT_READ,data=None) #registers the socket to be monitored with sel.select()
 
-        #TODO 
+        try:
+            while True:
+                # events is a list of tuples, one per socket
+                # each tuple consists of a key (a SelectorKey namedtuple) and a mask
+                # see more details at https://realpython.com/python-sockets/#handling-multiple-connections
 
-        # try:
-        #     while True:
-        #         # events is a list of tuples, one per socket
-        #         # each tuple consists of a key (a SelectorKey namedtuple) and a mask
-        #         # see more details at https://realpython.com/python-sockets/#handling-multiple-connections
-
-        #         #TODO set timeout to prevent clients from keeping a connection open indefinitely
+                #TODO set timeout to prevent clients from keeping a connection open indefinitely
+                
                 # below line is configured by sel.register line above 
-        #         events = sel.select(timeout=None) #blocks until there are sockets ready for I/O, i.e. have events ready to be processed
-        #         for key, mask in events:
-        #             #listening socket, need to accept the connection (i.e. new incoming client connxn, ready to be accepted)
-        #             if key.data is None: #returns third argument of object passed into sel.reg (data)
-        #                 accept_wrapper(key.fileobj) #accepts the new incoming connection
-        #             # client socket which has already been accepted and needs servicing
-        #             else: #for prev. accepted connxn's, those key.data values are NOT none --> this connexn exists
-        #                 service_connection(key, mask)
-        # except KeyboardInterrupt: # if user hits delete or CTRL+C
-        #     print("Caught keyboard interrupt, exiting")
-        # finally:
-        #     sel.close()
+                events = sel.select(timeout=None) #blocks until there are sockets ready for I/O, i.e. have events ready to be processed
+                for key, mask in events:
+                    #listening socket, need to accept the connection (i.e. new incoming client connxn, ready to be accepted)
+                    if key.data is None: #returns third argument of object passed into sel.reg (data)
+                        conn, addr = accept_wrapper(key.fileobj, sel, seshID=sessionID) #accepts the new incoming connection
+                    # client socket which has already been accepted and needs servicing
+                    else: #for previously accepted connxn's, those key.data values are NOT none --> this connxn exists
+                        service_connection(sel=sel, key=key, mask=mask, conn = conn, addr=addr)
 
+                # increment session ID, which will be the next unused value of session ID
+                sessionID = sessionID + 1
 
+        except KeyboardInterrupt: # if user hits delete or CTRL+C
+            print("Caught keyboard interrupt, exiting")
+        finally:
+            sel.close()    
 
-    #TODO -- Uncomment, document
-    #NOTES. Analogy: client knocks on the door. Server opens the door / initiates the connection
-# def accept_wrapper(sock):
-
-    # this is a NEW socket, different from the one the server is listening on
-#     # sock.accept() will NOT block
-      # conn = connection object, addr is address of the connection
-#     conn, addr = sock.accept()  # Should be ready to read
-#     print(f"Accepted connection from {addr}")
-    # ensures the conn object does not block
-#     conn.setblocking(False)
-    # in Python, SimpleNamespace is an unnamed instance of a class
-    # Replace HERE w CurrentState
-    #data = types.SimpleNamespace(sessionID=addr, inb=b"", outb=b"")
-
-#     data_here = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
-
-    # Don't worry about EVENT_WRITE part. 
-    
-#     events = selectors.EVENT_READ | selectors.EVENT_WRITE
-    # register this new connxn, the events of interest (EVENT_READ), and CurrentState
-#     sel.register(conn, events, data=data_here)
-
-
-# DO NOT worry about the client sending too much data 
-
-
-#NOTES
-# Receives the data.
-#TODO -- have this function pass the data and any other needed info into the bank core functions
-# Called when an existing connection is opened
-# def service_connection(key, mask):
-    # Pulls out socket associated w the connxn
-#     sock = key.fileobj
-    # Pulls out the data associated with this register
-#     data = key.data
-#     if mask & selectors.EVENT_READ:
-    # receive the data from this register, in the form of a CurrentState object
-    # TODO -- restructure code, eliminate redundancy
-#         recv_data = sock.recv(1024)  # Should be ready to read
-
-    # if recv_data() returns an empty bytes object, the server knows the client closed the connection
-    # if not recv_data:
-    #     break 
-
-# TODO -- call interpret_client_operation somewhere around here --> NEED TO PASS ALONG THE SOCKET AS AN OBJECT
-# TODO -- need to replicate code below w sendall
-
-#         else:
-#             print(f"Closing connection to {data.addr}")
-#             sel.unregister(sock)
-#             sock.close()
-
-
-
-
-
-
-
-
-
-## THIS CODE WORKED FOR P2 PART 1. NOT SURE WHERE IT BELONGS NOW
-        # The following line ensures the listening socket is ready to read
-        conn, addr = s.accept() # accept() blocks execution and waits for an incoming connection
-
-        with conn: # once a connection is made with the client, a new socket object is returned from accept() (different socket from the listening socket)
-
-            print(f"Accepted connection from {addr}\n")
-            # conn.setblocking(False)
-
-            #TODO
-            # data = CurrentState
-            # events = selectors.EVENT_READ | selectors.EVENT_WRITE
-            # sel.register(conn, events, data=data)
-
-
-            sessionID = sessionID + 1 # set session ID
-
-            print(f"Established connection, {addr}\n")
-
-            thisState = CurrentState(session_ID=sessionID)
-
-            while True: # infinite while loop to loop over blocking calls to conn.recv()
-
-                #TODO - try to break this. make sure no one could access process_transcations w/out loggin in
-                
-                # receive client message
-                client_msg = conn.recv(1024)
-                print("Received client message: " + client_msg.decode('utf-8') + "\n")
-                
-                # if conn.recv() returns an empty bytes object, the server knows the client closed the connection
-                if not client_msg:
-                    break 
-                
-                # send message to client in the form of resultcode,balance
-                result_code, current_state, bal = interpret_client_operation( client_msg.decode('utf-8') , thisState )
-                response = str(result_code) + "," + str(bal)
-                print("Sending client response: " + response + "\n")
-                conn.sendall( response.encode('utf-8') )
-
-                thisState = current_state
-        
-        thisState.logout()
-    
-    return # break out of the loop when the client terminates the session
-   
 
 ##########################################################
 #                                                        #
