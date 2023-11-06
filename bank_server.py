@@ -210,7 +210,7 @@ def interpret_client_operation(msg, thisState:CurrentState):
     """Parses client request, sends client account balance, performs request.
     Result codes are: 0: valid result; 1: invalid login; 2: invalid amount; 3: attempted overdraft""" 
 
-    cur_state = thisState
+    # cur_state = thisState
 
     #TODO BEFORE splitting, call a test to see if revieved message: (1) is __ items long, (2) is of type (whatever -- string, int.... whatever it should be), (3) 
 
@@ -219,8 +219,13 @@ def interpret_client_operation(msg, thisState:CurrentState):
 
     # login
     if(op_list[0] == "l"):
-        result_code, cur_state =  validate_acct_pin_pair(msg, thisState) # check whether the acct_num - pin pair is valid
-
+        print(thisState.logged_in)
+        if(thisState.logged_in == False):
+            result_code, thisState =  validate_acct_pin_pair(msg, thisState) # check whether the acct_num - pin pair is valid
+        else:
+            result_code = 1 #already logged in
+            return result_code, -1 
+        
     # balance check
     elif(op_list[0] == "b"):
         # no other steps needed. just communicate successful exchange of info between server and client
@@ -236,6 +241,8 @@ def interpret_client_operation(msg, thisState:CurrentState):
     else: # (op_list[0] == "w"):
         _, result_code, _ = this_acct.withdraw(float(op_list[2]))
     
+    print(result_code, thisState.logged_in)
+
     return result_code, get_balance(op_list[1])
     
 def accept_wrapper(sock, sel, seshID):
@@ -249,7 +256,7 @@ def accept_wrapper(sock, sel, seshID):
     # conn = connection object, addr is address of the connection
     conn, addr = sock.accept()  # Should be ready to read
     
-    print(f"Accepted connection from {addr}")
+    print(f"Accepted connection from {addr}\n")
     
     # ensures the conn object does not block
     conn.setblocking(False)
@@ -293,7 +300,7 @@ def service_connection(sel, key, mask, conn, addr):
 
         if not recv_data:
             #returns an empty bytes object, the server knows the client closed the connection
-            print(f"Closing connection to {data.addr}")
+            print(f"Closing connection to {data.addr}\n")
             sel.unregister(sock)
             sock.close()
             # TODO - this might need fixing
@@ -310,15 +317,17 @@ def run_bank_operations(conn, addr, client_msg, thisState):
 
     print(f"Established connection, {addr}\n")
 
-    while True: # infinite while loop to loop over blocking calls to conn.recv()
 
-        #TODO - try to break this. make sure no one could access process_transcations w/out loggin in              
+    #TODO - try to break this. make sure no one could access process_transcations w/out loggin in              
 
-        # send message to client in the form of resultcode,balance
-        result_code, bal = interpret_client_operation( client_msg.decode('utf-8') , thisState )
-        response = str(result_code) + "," + str(bal)
-        print("Sending client response: " + response + "\n")
-        conn.sendall( response.encode('utf-8') )
+    # send message to client in the form of resultcode,balance
+    # print(type( interpret_client_operation(client_msg, thisState)))
+    
+    result_code, bal = interpret_client_operation(client_msg, thisState )
+    # print(result_code, bal)
+    response = str(result_code) + "," + str(bal)
+    print("Sending client response: " + response + "\n")
+    conn.sendall( response.encode('utf-8') )
 
 
 def run_network_server():
@@ -336,7 +345,7 @@ def run_network_server():
        
         # from one-off: conn, addr = s.accept() # accept() blocks execution and waits for an incoming connection
         
-        print(f"Listening on,{(HOST, PORT)}")
+        print(f"Listening on,{(HOST, PORT)}\n")
 
         s.setblocking(False) # configures the open socket in non-blocking mode
         
@@ -366,7 +375,7 @@ def run_network_server():
                 sessionID = sessionID + 1
 
         except KeyboardInterrupt: # if user hits delete or CTRL+C
-            print("Caught keyboard interrupt, exiting")
+            print("Caught keyboard interrupt, exiting\n")
         finally:
             sel.close()    
 
@@ -429,4 +438,4 @@ if __name__ == "__main__":
     # uncomment the next line in order to run a simple demo of the server in action
     #demo_bank_server()
     run_network_server()
-    print("bank server exiting...")
+    print("bank server exiting...\n")
