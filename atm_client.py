@@ -28,7 +28,17 @@ def get_from_server(sock):
 
 def amountIsValid(amt):
     """Returns True if the amount is numeric."""
-    return amt.isnumeric()
+    # return amt.isnumeric()
+    # isinstance(amt, float)
+    # if amt.replace(".", "").isnumeric():
+    #     print((round(amt, 2) == amt) and (amt >= 0))
+    #     if (round(amt, 2) == amt) and (amt >= 0):
+    #         return True
+    #     else: return False
+    # else: return False
+
+    return isinstance(amt, float) and (round(amt, 2) == amt) and (amt >= 0)
+
 
 def acctNumberIsValid(ac_num):
     """Return True if ac_num represents a valid account number. This does NOT test whether the account actually exists, only
@@ -100,6 +110,9 @@ def process_deposit(sock, acct_num):
     bal = get_acct_balance(sock, acct_num)
     amt = input(f"How much would you like to deposit? (You have '${bal}' available)\n")
     
+    ###########################
+    amt = float(amt)
+
     if not amountIsValid(amt):
         return 2, bal
 
@@ -121,6 +134,9 @@ def communicateWithServer(sock, client_msg):
 def process_withdrawal(sock, acct_num):
     bal = get_acct_balance(sock, acct_num)
     amt = input(f"How much would you like to withdraw? (You have ${bal} available)\n")
+
+    ###########################
+    amt = float(amt)
 
     if not amountIsValid(amt):
         return 2, bal    

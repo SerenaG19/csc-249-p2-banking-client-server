@@ -9,7 +9,8 @@ import selectors
 HOST = "127.0.0.1"      # Standard loopback interface address (localhost)
 PORT = 65432            # Port to listen on (non-privileged ports are > 1023)
 ALL_ACCOUNTS = dict()   # initialize an empty dictionary
-ACCT_FILE = "accounts.txt"
+# ACCT_FILE = "accounts.txt"
+ACCT_FILE = "/Users/owner/Documents/CSC249/P2/csc-249-p2-banking-client-server/accounts.txt"
 
 ##########################################################
 #                                                        #
@@ -219,6 +220,7 @@ def interpret_client_operation(msg, thisState:CurrentState):
 
     # login
     if(op_list[0] == "l"):
+        #TODO comment out or delete next line
         print(thisState.logged_in)
         if(thisState.logged_in == False):
             result_code, thisState =  validate_acct_pin_pair(msg, thisState) # check whether the acct_num - pin pair is valid
@@ -241,6 +243,7 @@ def interpret_client_operation(msg, thisState:CurrentState):
     else: # (op_list[0] == "w"):
         _, result_code, _ = this_acct.withdraw(float(op_list[2]))
     
+    #TODO comment out or delete next line
     print(result_code, thisState.logged_in)
 
     return result_code, get_balance(op_list[1])
@@ -275,7 +278,7 @@ def accept_wrapper(sock, sel, seshID):
     return conn, addr
 
 
-# Receives the data.
+# Receives the data
 #TODO -- have this function pass the data and any other needed info into the bank core functions
 def service_connection(sel, key, mask, conn, addr):
     """ Used when an existing connection is opened, this function
@@ -289,8 +292,6 @@ def service_connection(sel, key, mask, conn, addr):
     if mask & selectors.EVENT_READ:
    # receive the data from this register, in the form of a CurrentState object
 
-    #TODO -- restructure code, eliminate redundancy
-
         recv_data = sock.recv(1024)  # Should be ready to read
         # Note: DO NOT worry about the client sending too much data 
         print("Received client message: " + recv_data.decode('utf-8') + "\n")
@@ -300,11 +301,12 @@ def service_connection(sel, key, mask, conn, addr):
 
         if not recv_data:
             #returns an empty bytes object, the server knows the client closed the connection
-            print(f"Closing connection to {data.addr}\n")
+            print(f"Closing connection to session id {data.sessionID}\n")
             sel.unregister(sock)
             sock.close()
             # TODO - this might need fixing
             data.logout()
+            return
 
         client_msg = recv_data.decode('utf-8')
         #note: data is type CurrentState
@@ -436,6 +438,6 @@ if __name__ == "__main__":
     # on startup, load all the accounts from the account file
     load_all_accounts(ACCT_FILE)
     # uncomment the next line in order to run a simple demo of the server in action
-    #demo_bank_server()
+    # demo_bank_server()
     run_network_server()
     print("bank server exiting...\n")
