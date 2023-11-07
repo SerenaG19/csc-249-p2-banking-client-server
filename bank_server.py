@@ -44,16 +44,23 @@ def amountIsValid(amount):
 
 class CurrentState:
     """CurrentState instances keep track of details of the current state of the bank server machine"""
+    # Class variables, whose vals get inherited by instances.
+    # TODO: make a global var list of all account numbers currently being logged in. But check before adding that the new acct is not logged in.
+    # TODO: remove the account from the list once they log out. --> Set - never more than one insance of an acct num in the global list
     logged_in = False
-    acccountNumber = 'zz-00000'
+    accountNumber = 'zz-00000'
     sessionID = 0
+
+    # class variable, not instance --> does not vary across instances
+    ACCTS_LOGGED_IN = list() # list containing the account numbers of all accounts currently logged in.
+
 
     #TODO: Evaluate: is it necessary for client to send it's Session ID (unique token) back to server in every message?
 
     def __init__(self, logIn = False, actNum = "zz-00000", session_ID = 0):
         """ Initialize the state variables of a new CurrentState instance. """
         self.logged_in = logIn
-        self.acccountNumber = actNum
+        self.accountNumber = actNum
         self.sessionID = session_ID
 
     def logIn(self):
@@ -66,7 +73,7 @@ class CurrentState:
         self.sessionID = ID
 
     def set_accountNum(self, ac):
-        self.acccountNumber = ac
+        self.accountNumber = ac
 
 class BankAccount:
     """BankAccount instances are used to encapsulate various details about individual bank accounts."""
@@ -195,58 +202,70 @@ def validate_acct_pin_pair(client_msg, state: CurrentState):
     #TODO: if not logged_in, DO NOT ALLOW ANY CLIENT TO PROCEED WITH ACCOUNT OPERATIONS
 
     login_credentials_list = client_msg.split(",") #parse the client's message based on a comma delimeter
+    account_string = login_credentials_list[1]
+    this_acct = get_acct(account_string) # returns the BankAccount object being requested
 
-    this_acct = get_acct(login_credentials_list[1]) # returns the BankAccount object being requested
-    if this_acct.validatePin(login_credentials_list[2]): #get_pin(login_credentials_list[1]):
-        result_code = 0
-        state.set_accountNum(login_credentials_list[1])
-        state.logIn()
+    # TODO FIRST CHECK account isn't logged in
+    if account_string not in CurrentState.ACCTS_LOGGED_IN:
+
+        if this_acct.validatePin(login_credentials_list[2]): #get_pin(login_credentials_list[1]):
+            result_code = 0
+            state.set_accountNum(login_credentials_list[1])
+            state.logIn() # 
+            CurrentState.ACCTS_LOGGED_IN.append(account_string) # this is how to access a class variable
 
     # invalid login credentials
-    else: result_code = 1
+    else: return 1, -1 #result_code = 1
 
     return result_code, state
 
+# "Dispatch function"
 def interpret_client_operation(msg, thisState:CurrentState):
     """Parses client request, sends client account balance, performs request.
     Result codes are: 0: valid result; 1: invalid login; 2: invalid amount; 3: attempted overdraft""" 
 
-    # cur_state = thisState
-
     #TODO BEFORE splitting, call a test to see if revieved message: (1) is __ items long, (2) is of type (whatever -- string, int.... whatever it should be), (3) 
+    # if validate_op_list() == True:
 
     op_list = msg.split(",") #op[0] = "l", "b", "d", or "w" | op[1] = param
+
     this_acct = get_acct(op_list[1])
 
-    # login
-    if(op_list[0] == "l"):
-        #TODO comment out or delete next line
-        print(thisState.logged_in)
-        if(thisState.logged_in == False):
-            result_code, thisState =  validate_acct_pin_pair(msg, thisState) # check whether the acct_num - pin pair is valid
-        else:
-            result_code = 1 #already logged in
-            return result_code, -1 
+    if this_acct not in CurrentState.ACCTS_LOGGED_IN:
+
+        # login
+        if(op_list[0] == "l"):
+            #TODO comment out or delete next line
+            # TODO CHANGE "logged_in" to authenticated
+            # print(thisState.logged_in)
+            # TODO - replace this conditional w checking class variable
+            if(thisState.logged_in == False):
+                result_code, thisState =  validate_acct_pin_pair(msg, thisState) # check whether the acct_num - pin pair is valid
+            else:
+                result_code = 1 #already logged in
+                return result_code, -1       
+
+        # balance check
+        elif(op_list[0] == "b"):
+            # no other steps needed. just communicate successful exchange of info between server and client
+            # the server by default sends back the account balance
+            # do not need to update the state
+            result_code = 0      
+
+        # deposit
+        elif(op_list[0] == "d"):
+            _, result_code, _ = this_acct.deposit(float(op_list[2]))
+
+        # withdraw
+        else: # (op_list[0] == "w"):
+            _, result_code, _ = this_acct.withdraw(float(op_list[2]))
         
-    # balance check
-    elif(op_list[0] == "b"):
-        # no other steps needed. just communicate successful exchange of info between server and client
-        # the server by default sends back the account balance
-        # do not need to update the state
-        result_code = 0
+        #TODO comment out or delete next line
+        # print(result_code, thisState.logged_in)
 
-    # deposit
-    elif(op_list[0] == "d"):
-        _, result_code, _ = this_acct.deposit(float(op_list[2]))
-
-    # withdraw
-    else: # (op_list[0] == "w"):
-        _, result_code, _ = this_acct.withdraw(float(op_list[2]))
+        if result_code == 0: return result_code, get_balance(op_list[1])
     
-    #TODO comment out or delete next line
-    print(result_code, thisState.logged_in)
-
-    return result_code, get_balance(op_list[1])
+    else: return result_code, -1 #report bal is -1 since this is an invalid login!!
     
 def accept_wrapper(sock, sel, seshID):
     """ Initiates the connection between the server and client, and sets the connection to be non-blocking.
@@ -287,7 +306,7 @@ def service_connection(sel, key, mask, conn, addr):
 
    # Pulls out socket associated w the connxn
     sock = key.fileobj
-    #Pulls out the data associated with this register
+    #Pulls out the data associated with this register, this instance of the CurrentState object
     data = key.data
     if mask & selectors.EVENT_READ:
    # receive the data from this register, in the form of a CurrentState object
@@ -306,10 +325,15 @@ def service_connection(sel, key, mask, conn, addr):
             sock.close()
             # TODO - this might need fixing
             data.logout()
+            #remove this account number from the class variable
+            if data.accountNumber in CurrentState.ACCTS_LOGGED_IN:
+                CurrentState.ACCTS_LOGGED_IN.remove(data.accountNumber)
+
             return
 
         client_msg = recv_data.decode('utf-8')
         #note: data is type CurrentState
+        #TODO streamline by adding conn and addr to the CurrentState instance -- to hold all state/session-related instances
         run_bank_operations(conn, addr, client_msg, thisState=data)
  
 
@@ -319,6 +343,8 @@ def run_bank_operations(conn, addr, client_msg, thisState):
 
     print(f"Established connection, {addr}\n")
 
+    #Notes: Good practice to limit global vars. In, Python global variables are notated by uppercase.
+    # Instead of global vars, use 
 
     #TODO - try to break this. make sure no one could access process_transcations w/out loggin in              
 
@@ -326,8 +352,13 @@ def run_bank_operations(conn, addr, client_msg, thisState):
     # print(type( interpret_client_operation(client_msg, thisState)))
     
     result_code, bal = interpret_client_operation(client_msg, thisState )
+
+    if result_code == 1:
+        response = ""
     # print(result_code, bal)
-    response = str(result_code) + "," + str(bal)
+    else:
+        response = str(result_code) + "," + str(bal)
+
     print("Sending client response: " + response + "\n")
     conn.sendall( response.encode('utf-8') )
 

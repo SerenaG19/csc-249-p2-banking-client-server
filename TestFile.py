@@ -7,3 +7,12 @@
 bool_val = True
 int_val = int(bool_val)
 print(int_val)
+
+myList = [1, 2, 3]
+print(myList)
+
+myList.append(6)
+print(myList)
+
+myList.remove(1)
+print(myList)

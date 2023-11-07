@@ -36,8 +36,8 @@ def amountIsValid(amt):
     #         return True
     #     else: return False
     # else: return False
-
-    return isinstance(amt, float) and (round(amt, 2) == amt) and (amt >= 0)
+    return type(amt) == float and (round(amt, 2) == amt) and (amt >= 0)
+    # return isinstance(amt, float) and (round(amt, 2) == amt) and (amt >= 0)
 
 
 def acctNumberIsValid(ac_num):
@@ -113,22 +113,15 @@ def process_deposit(sock, acct_num):
     ###########################
     amt = float(amt)
 
+    print(type(amt) == float)
+
     if not amountIsValid(amt):
         return 2, bal
 
-    client_msg = "d," + acct_num + "," + amt
+    client_msg = "d," + acct_num + "," + str(amt)
     result_code, bal = communicateWithServer(sock, client_msg)
 
     print("Deposit transaction completed.")
-    return result_code, bal
-
-def communicateWithServer(sock, client_msg):
-    """Returns result code and balance. Sends messages to the server and receives the server's response."""
-    send_to_server(sock, client_msg)
-    server_response = get_from_server(sock)
-    server_response_list = server_response.split(",")
-    result_code = int(server_response_list[0])
-    bal = server_response_list[1]
     return result_code, bal
 
 def process_withdrawal(sock, acct_num):
@@ -141,11 +134,20 @@ def process_withdrawal(sock, acct_num):
     if not amountIsValid(amt):
         return 2, bal    
 
-    client_msg = "w," + acct_num + "," + amt
+    client_msg = "w," + acct_num + "," + str(amt)
     result_code, bal = communicateWithServer(sock, client_msg)
 
     if result_code == 0:
         print("Withdrawal transaction completed.")
+    return result_code, bal
+
+def communicateWithServer(sock, client_msg):
+    """Returns result code and balance. Sends messages to the server and receives the server's response."""
+    send_to_server(sock, client_msg)
+    server_response = get_from_server(sock)
+    server_response_list = server_response.split(",")
+    result_code = int(server_response_list[0])
+    bal = server_response_list[1]
     return result_code, bal
 
 def process_customer_transactions(sock, acct_num):
@@ -216,6 +218,7 @@ def run_network_client():
             run_atm_core_loop(s)
     except Exception as e:
         print(f"Unable to connect to the banking server - exiting...")
+        print(f"{e}") # Print the error
 
 if __name__ == "__main__":
     print("Welcome to the ACME ATM Client, where customer satisfaction is our goal!")
