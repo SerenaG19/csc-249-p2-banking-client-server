@@ -215,7 +215,10 @@ def validate_acct_pin_pair(client_msg, state: CurrentState):
             CurrentState.ACCTS_LOGGED_IN.append(account_string) # this is how to access a class variable
 
     # invalid login credentials
-    else: return 1, -1 #result_code = 1
+    else: 
+        result_code = 1
+        emptyState = CurrentState()
+        return result_code, emptyState #result_code = 1
 
     return result_code, state
 
@@ -231,7 +234,7 @@ def interpret_client_operation(msg, thisState:CurrentState):
 
     this_acct = get_acct(op_list[1])
 
-    if this_acct not in CurrentState.ACCTS_LOGGED_IN:
+    if this_acct.acct_number not in CurrentState.ACCTS_LOGGED_IN:
 
         # login
         if(op_list[0] == "l"):
@@ -265,7 +268,7 @@ def interpret_client_operation(msg, thisState:CurrentState):
 
         if result_code == 0: return result_code, get_balance(op_list[1])
     
-    else: return result_code, -1 #report bal is -1 since this is an invalid login!!
+    else: return 1, -1 #result code is 1, report bal is -1 since this is an invalid login!!
     
 def accept_wrapper(sock, sel, seshID):
     """ Initiates the connection between the server and client, and sets the connection to be non-blocking.
