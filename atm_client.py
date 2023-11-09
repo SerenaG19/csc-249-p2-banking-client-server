@@ -57,17 +57,17 @@ def acctPinIsValid(pin):
         pin.isdigit())
 
 def check_logininfo_with_server(sock, login_info):
-    """Return validated, which is 0 if the server validates this acct_num - pin pair"""
+    """Return result code of login attempt based on server response"""
     # note that send_to_server() encodes the login_info to type byte
     send_to_server(sock, login_info) # send the login_info concatenated string to the server
     server_response_list = get_from_server(sock).split(",") # receive message from the server
     # result_code = bool(server_response_list[0])
     result_code = int(server_response_list[0])
-    result_code = bool(result_code)
-    validated = not result_code # validated is flipped value of result_code
+    # # result_code = bool(result_code)
+    # validated = not result_code # validated is flipped value of result_code
     
     bal = server_response_list[1]
-    return validated, bal
+    return result_code, bal
 
 def login_to_server(sock, acct_num, pin):
     """Returns result code and balance. Attempt to login to the bank server. Pass acct_num and pin, get response, parse and check whether login was successful. """
@@ -80,15 +80,18 @@ def login_to_server(sock, acct_num, pin):
     if not validated:
         # result code, balance
         # invalid login
-        return 1, 0
+        # result code = 1, balance = -1000
+        return 1, -1000
 
     # concatenate the acct_num and pin into one string, with a comma delimeter, to be read by the server
     login_info = "l," + acct_num + "," + pin
     
     # call check_logininfo_with_server function
-    validated, bal = check_logininfo_with_server(sock, login_info)
-    # result code, balance
-    return 0, bal
+    # validated, bal = check_logininfo_with_server(sock, login_info)
+    result_code, bal = check_logininfo_with_server(sock, login_info)
+    # shift validated back to result code, which is flipped value
+    # result_code = not validated
+    return result_code, bal
 
 def get_login_info():
     """ Returns account number and pin number."""
@@ -191,9 +194,8 @@ def run_atm_core_loop(sock):
             # result_code = 1
             print("Account number and PIN do not match. Please try again. Number of login attempts remaining: " + str(counter))
             counter = counter - 1
-    if result_code == 0:
+    if result_code == 0 and bal != -1000:
         print("Thank you, your credentials have been validated. Your balance is " + bal + ".")
-
     else: return False
 
     process_customer_transactions(sock, acct_num)
