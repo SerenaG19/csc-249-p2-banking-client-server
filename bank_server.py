@@ -244,12 +244,12 @@ def interpret_client_operation(msg, thisState:CurrentState):
 
     op_list = msg.split(",") #op[0] = "l", "b", "d", or "w" | op[1] = param
 
-    if (len(op_list) == 2 or len(op_list) == 3) and (all( isinstance( item, str ) for item in op_list)):
+    # DO NOT ASSUME THAT A RECEIVED MESSAGE WILL CONTAIN DATA IN THE EXPECTED FORMAT
+    if (len(op_list) == 2 or len(op_list) == 3) and (all( isinstance( item, str ) for item in op_list) and (type(op_list[0]) == str) ):
 
         this_acct = get_acct(op_list[1])
 
         # this session ID is thisState.sessionID
-        
         if this_acct.acct_number in CurrentState.ACCTS_LOGGED_IN:
             other_login_sessionID = CurrentState.ACCTS_LOGGED_IN.get(op_list[1])
 
@@ -353,7 +353,9 @@ def service_connection(sel, key, mask, conn, addr):
                     CurrentState.ACCTS_LOGGED_IN.pop(data.accountNumber)
             return
 
+        # client_msg will be in string form because of the below line
         client_msg = recv_data.decode('utf-8')
+
         #note: data is type CurrentState
         run_bank_operations(conn, addr, client_msg, thisState=data)
  

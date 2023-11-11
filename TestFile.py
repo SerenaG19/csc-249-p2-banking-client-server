@@ -2,29 +2,16 @@
 # Serena Geroe
 
 # Test file
-# bool_val = True
-# int_val = int(bool_val)
-# print(int_val)
 
-# myList = [1, 2, 3]
-# print(myList)
+msg = "l,ac-12345,1324"
 
-# myList.append(6)
-# print(myList)
+op_list = msg.split(",")
 
-# myList.remove(1)
-# print(myList)
+# print(op_list)
 
-# test_dictionary = {0:"ac-12345",30:"ab-9875"}
-# print(30 in test_dictionary)
+# print((len(op_list) == 2 or len(op_list) == 3) )
+# print(all( isinstance( item, str ) for item in op_list))
+# # print( type(op_list[0]) == str) 
+# print(type(op_list[0])) 
 
-
-# msg = "l,ac-12345,1324"
-
-# split_msg = msg.split(",")
-# # print(len(split_msg) == 2 or len(split_msg) == 3 )
-# print(isinstance(msg, str))
-
-# float(amt)
-# print(amt)
-# print(type(amt))
+print( (len(op_list) == 2 or len(op_list) == 3) and (all( isinstance( item, str ) for item in op_list) and (type(op_list[0]) == str) ) )

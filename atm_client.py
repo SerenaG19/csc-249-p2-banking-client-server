@@ -57,11 +57,7 @@ def check_logininfo_with_server(sock, login_info):
     # note that send_to_server() encodes the login_info to type byte
     send_to_server(sock, login_info) # send the login_info concatenated string to the server
     server_response_list = get_from_server(sock).split(",") # receive message from the server
-    # result_code = bool(server_response_list[0])
     result_code = int(server_response_list[0])
-    # # result_code = bool(result_code)
-    # validated = not result_code # validated is flipped value of result_code
-    
     bal = server_response_list[1]
     return result_code, bal
 
@@ -73,20 +69,13 @@ def login_to_server(sock, acct_num, pin):
     # This does NOT check if the acct_num and pin represent a real account, and whether they are correct.
     # That is the server's job!
     validated = acctNumberIsValid(acct_num) and acctPinIsValid(pin)
-    if not validated:
-        # result code, balance
-        # invalid login
-        # result code = 1, balance = -1000
-        return 1, -1000
+    if not validated: return 1, -1000
 
     # concatenate the acct_num and pin into one string, with a comma delimeter, to be read by the server
     login_info = "l," + acct_num + "," + pin
     
     # call check_logininfo_with_server function
-    # validated, bal = check_logininfo_with_server(sock, login_info)
     result_code, bal = check_logininfo_with_server(sock, login_info)
-    # shift validated back to result code, which is flipped value
-    # result_code = not validated
     return result_code, bal
 
 def get_login_info():
@@ -119,9 +108,8 @@ def process_deposit(sock, acct_num):
         return result_code, bal
     
     else:
-        # not amountIsValid(amt):
+        # not amountIsValid:
         return 2, bal # invalid amount
-    
 
 def process_withdrawal(sock, acct_num):
     bal = get_acct_balance(sock, acct_num)
@@ -137,7 +125,7 @@ def process_withdrawal(sock, acct_num):
         return result_code, bal
     
     else:
-        # not amountIsValid(amt):
+        # not amountIsValid:
         return 2, bal # invalid amount
 
 def communicateWithServer(sock, client_msg):
