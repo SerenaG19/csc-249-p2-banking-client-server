@@ -238,7 +238,7 @@ def validate_acct_pin_pair(client_msg, state: CurrentState):
 # "Dispatch function"
 def interpret_client_operation(msg, thisState:CurrentState):
     """Parses client request, sends client account balance, performs request.
-    Result codes are: 0: valid result; 1: invalid login; 2: invalid amount; 3: attempted overdraft""" 
+    Result codes are: 0: valid result; 1: invalid login; 2: invalid amount; 3: attempted overdraft; 4: suspicious login""" 
 
     go_ahead = False
 
@@ -249,11 +249,12 @@ def interpret_client_operation(msg, thisState:CurrentState):
 
         this_acct = get_acct(op_list[1])
 
+        # Check whether this account is already logged in
         # this session ID is thisState.sessionID
         if this_acct.acct_number in CurrentState.ACCTS_LOGGED_IN:
             other_login_sessionID = CurrentState.ACCTS_LOGGED_IN.get(op_list[1])
 
-            # if this account is already logged into THIS session (which IS valid)
+            # if this account is already logged into THIS session (which IS valid), set go_ahead to True
             if thisState.sessionID == other_login_sessionID:
                 go_ahead = True
 
@@ -361,6 +362,7 @@ def service_connection(sel, key, mask, conn, addr):
  
 
 def run_bank_operations(conn, addr, client_msg, thisState):
+    """Sends server response to client based on client message."""
         
     print(f"Established connection, {addr}\n")
 
@@ -375,7 +377,7 @@ def run_bank_operations(conn, addr, client_msg, thisState):
 
 def run_network_server():
     """ Runs the communication between the server and the client. """
-    # represents the number of sessions open, where each value is an identifier for each session
+
     sessionID = 0
 
     print("Establishing connection to client - listening for connections at IP", HOST, "and port", PORT, " \n")
@@ -473,6 +475,7 @@ def demo_bank_server():
 ##########################################################
 
 if __name__ == "__main__":
+    """ This function loads all bank accounts and runs the main network server function. """
     # on startup, load all the accounts from the account file
     load_all_accounts(ACCT_FILE)
     # uncomment the next line in order to run a simple demo of the server in action

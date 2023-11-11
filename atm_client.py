@@ -94,7 +94,7 @@ def get_acct_balance(sock, acct_num):
     return bal
 
 def process_deposit(sock, acct_num):
-    """Returns balance after successfully depositing money into account."""
+    """Returns result code and balance after successfully depositing money into account."""
     bal = get_acct_balance(sock, acct_num)
     amt = input(f"How much would you like to deposit? (You have '${bal}' available)\n")
 
@@ -108,10 +108,12 @@ def process_deposit(sock, acct_num):
         return result_code, bal
     
     else:
-        # not amountIsValid:
+        # amount is invalid:
         return 2, bal # invalid amount
 
 def process_withdrawal(sock, acct_num):
+    """Returns result code and balance after successfully withdrawing money into account."""
+
     bal = get_acct_balance(sock, acct_num)
     amt = input(f"How much would you like to withdraw? (You have ${bal} available)\n")
 
@@ -125,7 +127,7 @@ def process_withdrawal(sock, acct_num):
         return result_code, bal
     
     else:
-        # not amountIsValid:
+        # amount is invalid:
         return 2, bal # invalid amount
 
 def communicateWithServer(sock, client_msg):
