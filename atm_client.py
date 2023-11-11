@@ -7,7 +7,7 @@ import socket
 
 HOST = "127.0.0.1"      # The bank server's IP address
 PORT = 65432            # The port used by the bank server
-RESULT_CODES = ['SUCCESS','INVALID LOGIN','INVALID AMOUNT','ATTEMPTED OVERDRAFT']
+RESULT_CODES = ['SUCCESS','INVALID LOGIN','INVALID AMOUNT','ATTEMPTED OVERDRAFT','SUSPICIOUS LOGIN']
 
 ##########################################################
 #                                                        #
@@ -28,17 +28,13 @@ def get_from_server(sock):
 
 def amountIsValid(amt):
     """Returns True if the amount is numeric."""
-    # return amt.isnumeric()
-    # isinstance(amt, float)
-    # if amt.replace(".", "").isnumeric():
-    #     print((round(amt, 2) == amt) and (amt >= 0))
-    #     if (round(amt, 2) == amt) and (amt >= 0):
-    #         return True
-    #     else: return False
-    # else: return False
-    return type(amt) == float and (round(amt, 2) == amt) and (amt >= 0)
-    # return isinstance(amt, float) and (round(amt, 2) == amt) and (amt >= 0)
+    try: 
+        amt = float(amt)
+        return type(amt) == float and (round(amt, 2) == amt) and (amt >= 0)
+    except:
+        return False
 
+    # return type(amt) == float and (round(amt, 2) == amt) and (amt >= 0)
 
 def acctNumberIsValid(ac_num):
     """Return True if ac_num represents a valid account number. This does NOT test whether the account actually exists, only
@@ -112,37 +108,37 @@ def process_deposit(sock, acct_num):
     """Returns balance after successfully depositing money into account."""
     bal = get_acct_balance(sock, acct_num)
     amt = input(f"How much would you like to deposit? (You have '${bal}' available)\n")
+
+    if amountIsValid(amt):
+        amt = float(amt)
+
+        client_msg = "d," + acct_num + "," + str(amt)
+        result_code, bal = communicateWithServer(sock, client_msg)
+
+        print("Deposit transaction completed.")
+        return result_code, bal
     
-    ###########################
-    amt = float(amt)
-
-    print(type(amt) == float)
-
-    if not amountIsValid(amt):
-        return 2, bal
-
-    client_msg = "d," + acct_num + "," + str(amt)
-    result_code, bal = communicateWithServer(sock, client_msg)
-
-    print("Deposit transaction completed.")
-    return result_code, bal
+    else:
+        # not amountIsValid(amt):
+        return 2, bal # invalid amount
+    
 
 def process_withdrawal(sock, acct_num):
     bal = get_acct_balance(sock, acct_num)
     amt = input(f"How much would you like to withdraw? (You have ${bal} available)\n")
 
-    ###########################
-    amt = float(amt)
+    if amountIsValid(amt):
+        amt = float(amt)
 
-    if not amountIsValid(amt):
-        return 2, bal    
+        client_msg = "w," + acct_num + "," + str(amt)
+        result_code, bal = communicateWithServer(sock, client_msg)
 
-    client_msg = "w," + acct_num + "," + str(amt)
-    result_code, bal = communicateWithServer(sock, client_msg)
-
-    if result_code == 0:
         print("Withdrawal transaction completed.")
-    return result_code, bal
+        return result_code, bal
+    
+    else:
+        # not amountIsValid(amt):
+        return 2, bal # invalid amount
 
 def communicateWithServer(sock, client_msg):
     """Returns result code and balance. Sends messages to the server and receives the server's response."""
@@ -186,17 +182,24 @@ def run_atm_core_loop(sock):
     counter = 3
     acct_num, pin = get_login_info()
     result_code, bal = login_to_server(sock, acct_num, pin)
-    if result_code != 0: 
+    if result_code != 0 and result_code != 4: 
         print("Account number and PIN do not match. Please try again.")
         while result_code != 0 and counter >= 0:
             acct_num, pin = get_login_info()
             result_code, bal = login_to_server(sock, acct_num, pin)
             # result_code = 1
-            print("Account number and PIN do not match. Please try again. Number of login attempts remaining: " + str(counter))
+            if(result_code == 1):
+                print("Account number and PIN do not match. Please try again. Number of login attempts remaining: " + str(counter))
+            elif(result_code == 4):
+                print(RESULT_CODES[int(result_code)])
+            
             counter = counter - 1
-    if result_code == 0 and bal != -1000:
+    elif result_code == 0 and bal != -1000:
         print("Thank you, your credentials have been validated. Your balance is " + bal + ".")
-    else: return False
+
+    else: 
+        print(RESULT_CODES[int(result_code)])
+        return False
 
     process_customer_transactions(sock, acct_num)
 

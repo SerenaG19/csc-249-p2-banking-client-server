@@ -9,8 +9,7 @@ import selectors
 HOST = "127.0.0.1"      # Standard loopback interface address (localhost)
 PORT = 65432            # Port to listen on (non-privileged ports are > 1023)
 ALL_ACCOUNTS = dict()   # initialize an empty dictionary
-# ACCT_FILE = "accounts.txt"
-ACCT_FILE = "/Users/owner/Documents/CSC249/P2/csc-249-p2-banking-client-server/accounts.txt"
+ACCT_FILE = "accounts.txt"
 
 ##########################################################
 #                                                        #
@@ -45,23 +44,23 @@ def amountIsValid(amount):
 class CurrentState:
     """CurrentState instances keep track of details of the current state of the bank server machine"""
     # Class variables, whose vals get inherited by instances.
-    # TODO: make a global var list of all account numbers currently being logged in. But check before adding that the new acct is not logged in.
-    # TODO: remove the account from the list once they log out. --> Set - never more than one insance of an acct num in the global list
     logged_in = False
     accountNumber = 'zz-00000'
     sessionID = 0
+    connection = "need to establish"
+    address = "need to establish this too"
 
     # class variable, not instance --> does not vary across instances
     ACCTS_LOGGED_IN = dict() # dictionary containing the account numbers : sessionID of all accounts currently logged in.
 
-
-    #TODO: Evaluate: is it necessary for client to send it's Session ID (unique token) back to server in every message?
-
-    def __init__(self, logIn = False, actNum = "zz-00000", session_ID = 0):
+    def __init__(self, logIn = False, actNum = "zz-00000", session_ID = 0, 
+                 cn = "need to establish", ad = "need to establish this too"):
         """ Initialize the state variables of a new CurrentState instance. """
         self.logged_in = logIn
         self.accountNumber = actNum
         self.sessionID = session_ID
+        self.connection = cn
+        self.address = ad
 
     def logIn(self):
         self.logged_in = True
@@ -74,6 +73,13 @@ class CurrentState:
 
     def set_accountNum(self, ac):
         self.accountNumber = ac
+    
+    def set_connection(self, conn):
+        self.connection = conn
+
+    def set_address(self, addr):
+        self.address = addr
+
 
 class BankAccount:
     """BankAccount instances are used to encapsulate various details about individual bank accounts."""
@@ -198,25 +204,23 @@ def validate_acct_pin_pair(client_msg, state: CurrentState):
 
     # server expecting a message of the form l,acct_num,pin
 
-    #TODO: incorporate boolean logged_in
-    #TODO: if not logged_in, DO NOT ALLOW ANY CLIENT TO PROCEED WITH ACCOUNT OPERATIONS
-
     go_ahead = False
+    result_code = 5
 
     login_credentials_list = client_msg.split(",") #parse the client's message based on a comma delimeter
     account_string = login_credentials_list[1]
     this_acct = get_acct(account_string) # returns the BankAccount object being requested
 
-    # TODO FIRST CHECK account isn't logged in
-
+    # check whether this account is logged in.
+    # if this account is logged in, make sure it's in this session!
+        # in this case, go_ahead = true  
     if this_acct.acct_number in CurrentState.ACCTS_LOGGED_IN:
         other_login_sessionID = CurrentState.ACCTS_LOGGED_IN.get(this_acct)
 
         if state.sessionID == other_login_sessionID:
-            #TODO document this
             go_ahead = True
 
-    if go_ahead or account_string not in CurrentState.ACCTS_LOGGED_IN:
+    elif go_ahead or account_string not in CurrentState.ACCTS_LOGGED_IN:
 
         if this_acct.validatePin(login_credentials_list[2]): #get_pin(login_credentials_list[1]):
             result_code = 0
@@ -224,11 +228,10 @@ def validate_acct_pin_pair(client_msg, state: CurrentState):
             state.logIn() # 
             CurrentState.ACCTS_LOGGED_IN.update({account_string:state.sessionID}) # this is how to access a class variable
 
-    # invalid login credentials
-    else: 
-        result_code = 1
-        emptyState = CurrentState()
-        return result_code, emptyState #result_code = 1
+        else: 
+            result_code = 1
+            emptyState = CurrentState()
+            return result_code, emptyState #result_code = 1
 
     return result_code, state
 
@@ -239,123 +242,62 @@ def interpret_client_operation(msg, thisState:CurrentState):
 
     go_ahead = False
 
-    #TODO BEFORE splitting, call a test to see if revieved message: (1) is __ items long, (2) is of type (whatever -- string, int.... whatever it should be), (3) 
-    # if validate_op_list() == True:
-
     op_list = msg.split(",") #op[0] = "l", "b", "d", or "w" | op[1] = param
 
-    this_acct = get_acct(op_list[1])
+    if (len(op_list) == 2 or len(op_list) == 3) and (all( isinstance( item, str ) for item in op_list)):
 
-    # this session ID is thisState.sessionID
-    
-    if this_acct.acct_number in CurrentState.ACCTS_LOGGED_IN:
-        other_login_sessionID = CurrentState.ACCTS_LOGGED_IN.get(op_list[1])
+        this_acct = get_acct(op_list[1])
 
-        if thisState.sessionID == other_login_sessionID:
-            #TODO document this
-            go_ahead = True
+        # this session ID is thisState.sessionID
+        
+        if this_acct.acct_number in CurrentState.ACCTS_LOGGED_IN:
+            other_login_sessionID = CurrentState.ACCTS_LOGGED_IN.get(op_list[1])
 
-    if go_ahead or this_acct.acct_number not in CurrentState.ACCTS_LOGGED_IN:
+            # if this account is already logged into THIS session (which IS valid)
+            if thisState.sessionID == other_login_sessionID:
+                go_ahead = True
 
-        # login
-        if(op_list[0] == "l"):
-            #TODO comment out or delete next line
-            # TODO CHANGE "logged_in" to authenticated
-            # print(thisState.logged_in)
-            # TODO - replace this conditional w checking class variable
-            if(thisState.logged_in == False):
-                result_code, thisState =  validate_acct_pin_pair(msg, thisState) # check whether the acct_num - pin pair is valid
+        if go_ahead or this_acct.acct_number not in CurrentState.ACCTS_LOGGED_IN:
+
+            # login
+            if(op_list[0] == "l"):
+                if(thisState.logged_in == False):
+                    result_code, thisState =  validate_acct_pin_pair(msg, thisState) # check whether the acct_num - pin pair is valid
+                else:
+                    result_code = 4 #already logged in
+                    return result_code, -1000       
+
+            # balance check
+            elif(op_list[0] == "b"):
+                # no other steps needed. just communicate successful exchange of info between server and client
+                # the server by default sends back the account balance
+                # do not need to update the state
+                result_code = 0      
+
+            # deposit
+            elif(op_list[0] == "d"):
+                _, result_code, _ = this_acct.deposit(float(op_list[2]))
+
+            # withdraw
+            elif (op_list[0] == "w"):
+                _, result_code, _ = this_acct.withdraw(float(op_list[2]))
+
             else:
-                result_code = 1 #already logged in
-                return result_code, -1000       
+                return 1, -1000 # nefarious client sending malformed request
 
-        # balance check
-        elif(op_list[0] == "b"):
-            # no other steps needed. just communicate successful exchange of info between server and client
-            # the server by default sends back the account balance
-            # do not need to update the state
-            result_code = 0      
+            if result_code == 0: return result_code, get_balance(op_list[1])
 
-        # deposit
-        elif(op_list[0] == "d"):
-            _, result_code, _ = this_acct.deposit(float(op_list[2]))
+            else: return result_code, get_balance(op_list[1])
 
-        # withdraw
-        else: # (op_list[0] == "w"):
-            _, result_code, _ = this_acct.withdraw(float(op_list[2]))
-        
-        #TODO comment out or delete next line
-        # print(result_code, thisState.logged_in)
+        else: return 4, -1000 #result code is 1, report bal is -1000 since this is an invalid login!!
 
-        if result_code == 0: return result_code, get_balance(op_list[1])
-    
-    # at this point:
-    # # either this account is logged in in THIS session and no other sessions,
-    # # OR this account is logged into another session and this is a suspicious login attempt
+    else: return 4, -1000 #result code is 1, report bal is -1000 since this is an invalid login!!    
 
-    # # if this account is logged in in THIS session:
-    # elif thisState.loggedIn == True:
-    #     1+1
-
-
-    else: return 1, -1000 #result code is 1, report bal is -1000 since this is an invalid login!!    
-
-
-
-
-
-
-
-    # account is not logged in at this time
-    # if this_acct.acct_number not in CurrentState.ACCTS_LOGGED_IN:
-
-    #     # login
-    #     if(op_list[0] == "l"):
-    #         #TODO comment out or delete next line
-    #         # TODO CHANGE "logged_in" to authenticated
-    #         # print(thisState.logged_in)
-    #         # TODO - replace this conditional w checking class variable
-    #         if(thisState.logged_in == False):
-    #             result_code, thisState =  validate_acct_pin_pair(msg, thisState) # check whether the acct_num - pin pair is valid
-    #         else:
-    #             result_code = 1 #already logged in
-    #             return result_code, -1000       
-
-    #     # balance check
-    #     elif(op_list[0] == "b"):
-    #         # no other steps needed. just communicate successful exchange of info between server and client
-    #         # the server by default sends back the account balance
-    #         # do not need to update the state
-    #         result_code = 0      
-
-    #     # deposit
-    #     elif(op_list[0] == "d"):
-    #         _, result_code, _ = this_acct.deposit(float(op_list[2]))
-
-    #     # withdraw
-    #     else: # (op_list[0] == "w"):
-    #         _, result_code, _ = this_acct.withdraw(float(op_list[2]))
-        
-    #     #TODO comment out or delete next line
-    #     # print(result_code, thisState.logged_in)
-
-    #     if result_code == 0: return result_code, get_balance(op_list[1])
-    
-    # # at this point:
-    # # # either this account is logged in in THIS session and no other sessions,
-    # # # OR this account is logged into another session and this is a suspicious login attempt
-
-    # # # if this account is logged in in THIS session:
-    # # elif thisState.loggedIn == True:
-    # #     1+1
-
-
-    # else: return 1, -1000 #result code is 1, report bal is -1000 since this is an invalid login!!
     
 def accept_wrapper(sock, sel, seshID):
     """ Initiates the connection between the server and client, and sets the connection to be non-blocking.
     Takes as input parameters the socket object, the sel (selectors object), and the session ID.
-    Returns this conn (connection object)."""
+    Returns this conn (connection object) and addr (address object)."""
 
     # Analogy: client knocks on the door. Server opens the door / initiates the connection
     # this is a NEW socket, different from the one the server is listening on
@@ -370,7 +312,7 @@ def accept_wrapper(sock, sel, seshID):
 
     # Instantiate a new CurrentState object, with the current session ID. set logged in to False.
     # do not set account number yet, since that will be taken care of in service_connection
-    data_here = CurrentState(session_ID=seshID,logIn=False)
+    data_here = CurrentState(session_ID=seshID,logIn=False, cn = conn, ad = addr)
 
     #Don't worry about EVENT_WRITE part. 
     
@@ -383,7 +325,6 @@ def accept_wrapper(sock, sel, seshID):
 
 
 # Receives the data
-#TODO -- have this function pass the data and any other needed info into the bank core functions
 def service_connection(sel, key, mask, conn, addr):
     """ Used when an existing connection is opened, this function
     receives the data from the client and listens for whether the client closed the connection.
@@ -400,50 +341,30 @@ def service_connection(sel, key, mask, conn, addr):
         # Note: DO NOT worry about the client sending too much data 
         print("Received client message: " + recv_data.decode('utf-8') + "\n")
         
-        # TODO -- call interpret_client_operation somewhere around here --> NEED TO PASS ALONG THE SOCKET AS AN OBJECT
-        # TODO -- need to replicate code below w sendall
-
         if not recv_data:
             #returns an empty bytes object, the server knows the client closed the connection
             print(f"Closing connection to session id {data.sessionID}\n")
             sel.unregister(sock)
             sock.close()
-            # TODO - this might need fixing
             data.logout()
             #remove this account number from the class variable
-            if data.accountNumber in CurrentState.ACCTS_LOGGED_IN:
-                CurrentState.ACCTS_LOGGED_IN.pop(data.accountNumber)
-
+            if(len(CurrentState.ACCTS_LOGGED_IN) > 0):
+                if data.accountNumber in CurrentState.ACCTS_LOGGED_IN and data.logged_in == True:
+                    CurrentState.ACCTS_LOGGED_IN.pop(data.accountNumber)
             return
 
         client_msg = recv_data.decode('utf-8')
         #note: data is type CurrentState
-        #TODO streamline by adding conn and addr to the CurrentState instance -- to hold all state/session-related instances
         run_bank_operations(conn, addr, client_msg, thisState=data)
  
 
 def run_bank_operations(conn, addr, client_msg, thisState):
         
-    # from one-off:   conn, addr = s.accept() # accept() blocks execution and waits for an incoming connection
-
     print(f"Established connection, {addr}\n")
 
-    #Notes: Good practice to limit global vars. In, Python global variables are notated by uppercase.
-    # Instead of global vars, use 
-
-    #TODO - try to break this. make sure no one could access process_transcations w/out loggin in              
-
-    # send message to client in the form of resultcode,balance
-    # print(type( interpret_client_operation(client_msg, thisState)))
-    
+    # send message to client in the form of resultcode,balance    
     result_code, bal = interpret_client_operation(client_msg, thisState )
 
-    # if result_code == 1:
-    #     bal = -1000
-    # # print(result_code, bal)
-    # else:
-    #     response = str(result_code) + "," + str(bal)
-    
     response = str(result_code) + "," + str(bal)
 
     print("Sending client response: " + response + "\n")
@@ -478,29 +399,27 @@ def run_network_server():
                 # events is a list of tuples, one per socket
                 # each tuple consists of a key (a SelectorKey namedtuple) and a mask
                 # see more details at https://realpython.com/python-sockets/#handling-multiple-connections
-
-                #TODO set timeout to prevent clients from keeping a connection open indefinitely
                 
                 # below line is configured by sel.register line above 
                 events = sel.select(timeout=None) #blocks until there are sockets ready for I/O, i.e. have events ready to be processed
                 for key, mask in events:
                     #listening socket, need to accept the connection (i.e. new incoming client connxn, ready to be accepted)
                     if key.data is None: #returns third argument of object passed into sel.reg (data)
-                        conn, addr = accept_wrapper(key.fileobj, sel, seshID=sessionID) #accepts the new incoming connection
+                    #    conn, addr = accept_wrapper(key.fileobj, sel, seshID=sessionID) #accepts the new incoming connection
+                        accept_wrapper(key.fileobj, sel, seshID=sessionID) #accepts the new incoming connection
+                    #    print("after accept: " + str(conn) + "," + str(addr))
                     # client socket which has already been accepted and needs servicing
                     else: #for previously accepted connxn's, those key.data values are NOT none --> this connxn exists
-                        service_connection(sel=sel, key=key, mask=mask, conn = conn, addr=addr)
-
+                        service_connection(sel=sel, key=key, mask=mask, conn = key.data.connection, addr=key.data.address)
+                        # print("after service: " + str(conn) + "," + str(addr))
                 # increment session ID, which will be the next unused value of session ID
                 sessionID = sessionID + 1
 
-                print(CurrentState.ACCTS_LOGGED_IN)
-
-        except KeyboardInterrupt: # if user hits delete or CTRL+C
+        except KeyboardInterrupt as e: # if user hits delete or CTRL+C
             print("Caught keyboard interrupt, exiting\n")
+            print(f"{e}") # Print the error
         finally:
             sel.close()    
-
 
 ##########################################################
 #                                                        #
@@ -552,9 +471,6 @@ def demo_bank_server():
 ##########################################################
 
 if __name__ == "__main__":
-
-    #TODO: Connect to this server using P1 client to test
-
     # on startup, load all the accounts from the account file
     load_all_accounts(ACCT_FILE)
     # uncomment the next line in order to run a simple demo of the server in action
